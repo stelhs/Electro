@@ -2,6 +2,7 @@ from PyQt4.QtGui import *
 from PyQt4.QtCore import *
 from ElectroEditor import *
 from GraphicsItems import *
+from History import *
 from gtk.keysyms import ordfeminine
 
 
@@ -14,11 +15,13 @@ class ElectroScene(QGraphicsScene):
         self.drawingLine = None
         self.multiSelected = False  # Shift key is pressed
         self.selectingByMouse = None  # select rectangular area for selecting items
-        self.movingItem = None  # Moving item object
-        self.moveMode = None
+        self.movingItem = None  # Moving item
+        self.movedPointItems = []  # List of Moving point items
         self.drawMode = 'select'
         self.selectedCenter = None
         self.keyCTRL = False
+
+        self.history = History(self)
 
         self.cursorX = QGraphicsLineItem(None, self)
         self.cursorY = QGraphicsLineItem(None, self)
@@ -153,10 +156,13 @@ class ElectroScene(QGraphicsScene):
                 return
 
             if self.drawMode == 'drawLine':
+                if self.drawingLine:
+                    self.history.addItems([self.drawingLine])
+
                 p = self.mapToSnap(ev.scenePos())
-                self.drawingLine = LineItem(None, self)
-                self.drawingLine.setPen(QPen(Qt.black, 3, Qt.SolidLine))
+                self.drawingLine = LineItem()
                 self.drawingLine.setP1(p)
+                self.addItem(self.drawingLine)
                 QGraphicsScene.mousePressEvent(self, ev)
                 return
 
@@ -174,18 +180,19 @@ class ElectroScene(QGraphicsScene):
             return False
 
         point = self.mapToSnap(ev.scenePos())
-        found = False
         for item in self.graphicsItems():
             if item.setSelectPoint(point):
-                found = True
+                self.movedPointItems.append(item)
 
-        if found:
-            self.moveMode = 'Point'
-        return found
+        if not len(self.movedPointItems):
+            return False
+
+        self.history.changeItemsBefore(self.movedPointItems)
+        return True
 
 
     def mouseMoveEventMovePoint(self, ev):
-        if self.moveMode != 'Point':
+        if not len(self.movedPointItems):
             return False
 
         p = self.mapToSnap(ev.scenePos())
@@ -193,6 +200,7 @@ class ElectroScene(QGraphicsScene):
             if not item.isPointSelected():
                 continue
             item.modifySelectedPoint(p)
+        self.calculateSelectionCenter()
         return True
 
 
@@ -205,6 +213,8 @@ class ElectroScene(QGraphicsScene):
 
         item.mouseMoveDelta = ev.scenePos() - item.pos()
         self.movingItem = item
+        self.itemAddToSelection(item)
+        self.history.changeItemsBefore(self.selectedGraphicsItems())
         return True
 
 
@@ -224,7 +234,7 @@ class ElectroScene(QGraphicsScene):
                 continue
             item.setPos(QPointF(p + item.pos() - pos))
             item.markPointsShow()
-
+        self.calculateSelectionCenter()
         return True
 
 
@@ -274,12 +284,16 @@ class ElectroScene(QGraphicsScene):
 #        drawingLine = self.drawingLine
         selectingByMouse = self.selectingByMouse
 
-        if self.moveMode == 'Point':
-            for item in self.graphicsItems():
+        if len(self.movedPointItems):
+            self.history.changeItemsAfter(self.movedPointItems)
+            for item in self.movedPointItems:
                 item.resetSelectionPoint()
+            self.movedPointItems = []
 
-        self.movingItem = None
-        self.moveMode = None
+        if self.movingItem:
+            self.history.changeItemsAfter(self.selectedGraphicsItems())
+            self.movingItem = None
+
         self.selectingByMouse = None
 
         if selectingByMouse and selectingByMouse["selectRect"]:
@@ -292,7 +306,9 @@ class ElectroScene(QGraphicsScene):
     def keyPressEvent(self, event):
         key = event.key()
         if key == 16777223:  # DEL
-            for item in self.selectedGraphicsItems():
+            items = self.selectedGraphicsItems()
+            self.history.removeItems(items)
+            for item in items:
                 self.removeGraphicsItem(item)
                 item.__exit__()
             return
@@ -306,15 +322,29 @@ class ElectroScene(QGraphicsScene):
             self.keyCTRL = True
             return
 
-        if key == 32:  # Space
-            print("Shift space")
-            for item in self.selectedGraphicsItems():
-                item.rotate(self.selectedCenter, 90)
+        if key == 83:  # S
+            print(self)
+            print(self.history)
             return
 
-        if key == 65 and self.keyCTRL:  # A
+        if key == 32:  # Space
+            self.history.changeItemsBefore(self.selectedGraphicsItems())
+            for item in self.selectedGraphicsItems():
+                item.rotate(self.selectedCenter, 90)
+            self.history.changeItemsAfter(self.selectedGraphicsItems())
+            return
+
+        if self.keyCTRL and key == 65:  # CTLR + A
             for item in self.graphicsItems():
                 self.itemAddToSelection(item)
+
+        if self.keyCTRL and key == 90:  # CTLR + Z
+            self.history.undo()
+            return
+
+        if self.keyCTRL and key == 89:  # CTLR + Y
+            self.history.redo()
+            return
 
         QGraphicsScene.keyPressEvent(self, event)
 
@@ -354,7 +384,21 @@ class ElectroScene(QGraphicsScene):
     def removeGraphicsItem(self, item):
         item.__exit__()
         self.removeItem(item)
-        del item
+
+
+    def removeGraphicsItemById(self, id):
+        item = self.itemById(id)
+        if not item:
+            return False
+        self.removeGraphicsItem(item)
+        return True
+
+
+    def itemById(self, id):
+        for item in self.graphicsItems():
+            if item.id() == id:
+                return item
+        return None
 
 
     def setMode(self, mode):
@@ -370,7 +414,7 @@ class ElectroScene(QGraphicsScene):
             self.drawMode = 'drawLine'
 
 
-    def selectionCenter(self):
+    def calculateSelectionCenter(self):
         poligon = QPolygonF()
         for item in self.selectedGraphicsItems():
             poligon += item.mapToScene(item.boundingRect())
@@ -378,16 +422,25 @@ class ElectroScene(QGraphicsScene):
             return
 
         rect = poligon.boundingRect()
-        return self.mapToSnap(rect.center())
+        self.selectedCenter = self.mapToSnap(rect.center())
 
 
     def itemAddToSelection(self, item):
         item.select()
         item.markPointsShow()
-        self.selectedCenter = self.selectionCenter()
+        self.calculateSelectionCenter()
 
 
     def itemRemoveFromSelection(self, item):
         item.resetSelection()
         item.markPointsHide()
-        self.selectedCenter = self.selectionCenter()
+        self.calculateSelectionCenter()
+
+
+    def __str__(self):
+        str = "\n--------------\n"
+        str += "Scene contain:\n"
+        for item in self.graphicsItems():
+            str += "%s\n" % item
+        return str
+

@@ -2,21 +2,33 @@ from ElectroScene import *
 from PyQt4.QtGui import *
 
 EDITOR_GRAPHICS_ITEM = QGraphicsItem.UserType + 1
+graphicsItemLastId = 0
 
 
 class LineItem(QGraphicsLineItem):
-    MARK_SIZE = 16
+    MARK_SIZE = 14
 
 
-    def __init__(self, parent, scene):
+    def __init__(self):
         self.markP1 = None
         self.markP2 = None
-        QGraphicsLineItem.__init__(self, parent, scene)
+        QGraphicsLineItem.__init__(self)
         self.mouseMoveDelta = None
         self.selectedPoint = None
         self.selected = False
         self.center = None
         self.setZValue(1)
+        global graphicsItemLastId
+        graphicsItemLastId += 1
+        self.itemId = graphicsItemLastId
+        self.copyOf = None
+        self.normalPen = QPen(Qt.black, 3, Qt.SolidLine, Qt.RoundCap)
+        self.selectedPen = QPen(Qt.magenta, 6, Qt.SolidLine, Qt.RoundCap)
+        self.setPen(self.normalPen)
+
+
+    def id(self):
+        return self.itemId
 
 
     def type(self):
@@ -99,25 +111,35 @@ class LineItem(QGraphicsLineItem):
             delta = self.p2() - new_point
             self.setP1(new_point)
             self.setP2(QPointF(new_point + delta))
+            if self.p1() == self.p2():
+                self.scene().removeGraphicsItem(self)
             return True
 
         if self.selectedPoint == 2:
             self.setP2(new_point)
+            if self.p1() == self.p2():
+                self.scene().removeGraphicsItem(self)
             return True
 
         return False
 
 
     def setColor(self, color):
-        pen = self.pen()
-        pen.setColor(color)
-        self.setPen(pen)
+        self.normalPen.setColor(color)
+        self.setPen(self.normalPen)
+
+
+    def color(self):
+        return self.normalPen.color()
 
 
     def setThickness(self, size):
-        pen = self.pen()
-        pen.setWidth(size)
-        self.setPen(pen)
+        self.normalPen.setWidth(size)
+        self.setPen(self.normalPen)
+
+
+    def thickness(self):
+        return self.normalPen.width()
 
 
     def isSelected(self):
@@ -125,14 +147,13 @@ class LineItem(QGraphicsLineItem):
 
 
     def select(self):
-        self.setColor(Qt.magenta)
-        self.setThickness(6)
+        self.setPen(self.selectedPen)
         self.selected = True
 
 
     def resetSelection(self):
-        self.setColor(Qt.black)
-        self.setThickness(3)
+        self.markPointsHide()
+        self.setPen(self.normalPen)
         self.selected = False
 
 
@@ -145,6 +166,47 @@ class LineItem(QGraphicsLineItem):
         p2 = t.map(self.p2())
         self.setP1(p1)
         self.setP2(p2)
+        self.markPointsShow()
+
+
+    def copy(self):
+        new = LineItem()
+        new.setP1(self.p1())
+        new.setP2(self.p2())
+        new.copyOf = self.id()
+        return new
+
+
+    def properties(self):
+        properties = {}
+        properties['id'] = self.id()
+        properties['color'] = self.color()
+        properties['thickness'] = self.thickness()
+        properties['p1'] = self.p1()
+        properties['p2'] = self.p2()
+        return properties
+
+
+    def setProperties(self, properties):
+        self.resetSelection()
+        self.setColor(properties['color'])
+        self.setThickness(properties['thickness'])
+        self.setP1(properties['p1'])
+        self.setP2(properties['p2'])
+
+
+    def __str__(self):
+        str = "Graphics line %d: %dx%d - %dx%d" % (self.id(),
+                                  self.p1().x(), self.p1().y(),
+                                  self.p2().x(), self.p2().y())
+
+        if self.copyOf:
+            str += " | copyOf %d" % self.copyOf
+
+        if self.isSelected():
+            str += " | selected"
+
+        return str
 
 
     def __exit__(self):

@@ -21,7 +21,7 @@ class ElectroEditor(QWidget):
         self.layout.addWidget(self.sceneView)
         self.show()
 
-        self.matrixStep = 15
+        self.matrixStep = 10
 
 
     def keyPressEvent(self, event):
