@@ -6,9 +6,9 @@ from PyQt4.Qt import QWidget
 class ElectroEditor(QWidget):
 
 
-    def __init__(self):
+    def __init__(self, app):
         QWidget.__init__(self)
-
+        self.app = app
         self.scene = ElectroScene(self)
         self.sceneView = ElectroSceneView(self, self.scene)
         self.sceneView.setMouseTracking(True)
@@ -37,3 +37,10 @@ class ElectroEditor(QWidget):
 
         QWidget.keyPressEvent(self, event)
 
+
+    def toClipboard(self, text):
+        self.app.clipboard().setText(text)
+
+
+    def fromClipboard(self):
+        return self.app.clipboard().text()

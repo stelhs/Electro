@@ -1,8 +1,19 @@
 from ElectroScene import *
 from PyQt4.QtGui import *
+import json
 
 EDITOR_GRAPHICS_ITEM = QGraphicsItem.UserType + 1
 graphicsItemLastId = 0
+
+
+def createGraphicsObjectsByProperties(properties):
+    items = []
+    for itemProp in properties:
+        if itemProp['type'] == 'LineItem':
+            item = LineItem()
+            item.setProperties(itemProp)
+            items.append(item)
+    return items
 
 
 class LineItem(QGraphicsLineItem):
@@ -18,13 +29,15 @@ class LineItem(QGraphicsLineItem):
         self.selected = False
         self.center = None
         self.setZValue(1)
-        global graphicsItemLastId
-        graphicsItemLastId += 1
-        self.itemId = graphicsItemLastId
         self.copyOf = None
         self.normalPen = QPen(Qt.black, 3, Qt.SolidLine, Qt.RoundCap)
         self.selectedPen = QPen(Qt.magenta, 6, Qt.SolidLine, Qt.RoundCap)
         self.setPen(self.normalPen)
+        self.deltaCenter = None
+
+        global graphicsItemLastId
+        graphicsItemLastId += 1
+        self.itemId = graphicsItemLastId
 
 
     def id(self):
@@ -83,6 +96,8 @@ class LineItem(QGraphicsLineItem):
         point = QPointF(point - self.pos())
         line.setP2(point)
         self.setLine(line)
+        if self.isSelected():
+            self.markPointsShow()
 
 
     def setSelectPoint(self, point):
@@ -180,23 +195,38 @@ class LineItem(QGraphicsLineItem):
     def properties(self):
         properties = {}
         properties['id'] = self.id()
-        properties['color'] = self.color()
+        properties['type'] = self.name()
+        properties['color'] = {"red" : self.color().red(),
+                               "green" : self.color().green(),
+                               "blue" : self.color().blue()}
         properties['thickness'] = self.thickness()
-        properties['p1'] = self.p1()
-        properties['p2'] = self.p2()
+        properties['p1'] = {"x" : self.p1().x(), "y": self.p1().y()}
+        properties['p2'] = {"x" : self.p2().x(), "y": self.p2().y()}
         return properties
 
 
     def setProperties(self, properties):
         self.resetSelection()
-        self.setColor(properties['color'])
+        self.setColor(QColor(properties['color']['red'],
+                             properties['color']['green'],
+                             properties['color']['blue']))
         self.setThickness(properties['thickness'])
-        self.setP1(properties['p1'])
-        self.setP2(properties['p2'])
+        self.setP1(QPointF(properties['p1']['x'], properties['p1']['y']))
+        self.setP2(QPointF(properties['p2']['x'], properties['p2']['y']))
+
+
+    def setCenter(self, point):
+        self.deltaCenter = self.pos() - point
+
+
+    def moveByCenter(self, point):
+        self.setPos(QPointF(point + self.deltaCenter))
+        if self.isSelected():
+            self.markPointsShow()
 
 
     def __str__(self):
-        str = "Graphics line %d: %dx%d - %dx%d" % (self.id(),
+        str = "Graphics line %d: %d,%d - %d,%d" % (self.id(),
                                   self.p1().x(), self.p1().y(),
                                   self.p2().x(), self.p2().y())
 
@@ -205,6 +235,10 @@ class LineItem(QGraphicsLineItem):
 
         if self.isSelected():
             str += " | selected"
+
+        if self.deltaCenter:
+            str += " | deltaCenter %d,%d" % (self.deltaCenter.x(),
+                                             self.deltaCenter.y())
 
         return str
 

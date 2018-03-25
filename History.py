@@ -91,7 +91,7 @@ class ActionChangeItems(HistoryAction):
 
 
     def type(self):
-        return 'removeItems'
+        return 'changeItems'
 
 
     def undo(self):

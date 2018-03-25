@@ -4,6 +4,7 @@ from ElectroEditor import *
 from GraphicsItems import *
 from History import *
 from gtk.keysyms import ordfeminine
+import json
 
 
 class ElectroScene(QGraphicsScene):
@@ -17,9 +18,10 @@ class ElectroScene(QGraphicsScene):
         self.selectingByMouse = None  # select rectangular area for selecting items
         self.movingItem = None  # Moving item
         self.movedPointItems = []  # List of Moving point items
-        self.drawMode = 'select'
+        self.mode = 'select'
         self.selectedCenter = None
         self.keyCTRL = False
+        self.mousePos = QPointF(0, 0)
 
         self.history = History(self)
 
@@ -49,12 +51,12 @@ class ElectroScene(QGraphicsScene):
 
 
     def resetSelectionItems(self):
-        for item in self.graphicsItems():
+        for item in self.selectedGraphicsItems():
             self.itemRemoveFromSelection(item)
 
 
     def mousePressEventStartRectSelection(self, ev):
-        item = self.itemAt(ev.scenePos().x(), ev.scenePos().y())
+        item = self.itemAt(ev.scenePos())
         if item:
             return False
 
@@ -124,38 +126,46 @@ class ElectroScene(QGraphicsScene):
 
 
     def mousePressEventSelectItem(self, ev):
-        item = self.itemAt(ev.scenePos().x(), ev.scenePos().y())
+        item = self.itemAt(ev.scenePos())
         if not item or item.type() != EDITOR_GRAPHICS_ITEM:
             if not self.multiSelected:
                 self.resetSelectionItems()
             return False
 
+        print("item found")
+
         if not item.isSelected() and len(self.selectedGraphicsItems()) and not self.multiSelected:
+            print("reset other items")
             self.resetSelectionItems()
 
-        if item.isSelected() and self.multiSelected:
+        if self.multiSelected:
+            self.itemAddToSelection(item)
+            return
+
+        print("check for selected")
+        if item.isSelected():
+            print("remove selection")
             self.itemRemoveFromSelection(item)
         else:
+            print("add selection")
             self.itemAddToSelection(item)
         return True
 
 
     def mousePressEvent(self, ev):
         if ev.button() == 1:
-            if self.drawMode == 'select':
+            if self.mode == 'select':
                 if self.mousePressEventMovePoint(ev):
                     return
 
+                self.mousePressEventSelectItem(ev)
                 self.mousePressEventMoveItem(ev)
-
-                if self.mousePressEventSelectItem(ev):
-                    return
 
                 if self.mousePressEventStartRectSelection(ev):
                     return
                 return
 
-            if self.drawMode == 'drawLine':
+            if self.mode == 'drawLine':
                 if self.drawingLine:
                     self.history.addItems([self.drawingLine])
 
@@ -166,11 +176,26 @@ class ElectroScene(QGraphicsScene):
                 QGraphicsScene.mousePressEvent(self, ev)
                 return
 
+            if self.mode == 'pasteFromClipboard':
+                self.mode = 'select'
+                return
+
         if ev.button() == 2:
-            if self.drawingLine:
-                self.removeGraphicsItem(self.drawingLine)
-                self.drawingLine = None
-            return
+            if self.mode == 'select':
+                self.resetSelectionItems()
+                return
+
+            if self.mode == 'drawLine':
+                if self.drawingLine:
+                    self.removeGraphicsItem(self.drawingLine)
+                    self.drawingLine = None
+                else:
+                    self.setMode('select')
+                return
+
+            if self.mode == 'pasteFromClipboard':
+                self.setMode('select')
+                return
 
         QGraphicsScene.mousePressEvent(self, ev)
 
@@ -213,7 +238,6 @@ class ElectroScene(QGraphicsScene):
 
         item.mouseMoveDelta = ev.scenePos() - item.pos()
         self.movingItem = item
-        self.itemAddToSelection(item)
         self.history.changeItemsBefore(self.selectedGraphicsItems())
         return True
 
@@ -227,6 +251,8 @@ class ElectroScene(QGraphicsScene):
         p = self.mapToSnap(p)
         pos = self.movingItem.pos()
         self.movingItem.setPos(p)
+        if not self.movingItem.isSelected():
+            self.itemAddToSelection(self.movingItem)
 
         items = self.selectedGraphicsItems()
         for item in items:
@@ -257,7 +283,8 @@ class ElectroScene(QGraphicsScene):
 
 
     def mouseMoveEvent(self, ev):
-        if self.drawMode == 'select':
+        self.mousePos = ev.scenePos()
+        if self.mode == 'select':
             self.mouseMoveEventDisplayPoints(ev)
 
             if self.mouseMoveEventMoveItem(ev):
@@ -270,13 +297,19 @@ class ElectroScene(QGraphicsScene):
             QGraphicsScene.mouseMoveEvent(self, ev)
             return
 
-        if self.drawMode == 'drawLine':
+        if self.mode == 'drawLine':
             p = self.mapToSnap(ev.scenePos())
             self.drawCursor(p)
             if not self.drawingLine:
                 return
 
             self.drawingLine.setP2(p)
+            return
+
+        if self.mode == 'pasteFromClipboard':
+            for item in self.selectedGraphicsItems():
+                item.moveByCenter(self.mapToSnap(ev.scenePos()))
+            self.calculateSelectionCenter()
             return
 
 
@@ -331,6 +364,7 @@ class ElectroScene(QGraphicsScene):
             self.history.changeItemsBefore(self.selectedGraphicsItems())
             for item in self.selectedGraphicsItems():
                 item.rotate(self.selectedCenter, 90)
+                item.setCenter(self.selectedCenter)
             self.history.changeItemsAfter(self.selectedGraphicsItems())
             return
 
@@ -344,6 +378,14 @@ class ElectroScene(QGraphicsScene):
 
         if self.keyCTRL and key == 89:  # CTLR + Y
             self.history.redo()
+            return
+
+        if self.keyCTRL and key == 67:  # CTLR + C
+            self.copySelectedToClipboard()
+            return
+
+        if self.keyCTRL and key == 86:  # CTLR + V
+            self.pastFromClipboard(self.editor.fromClipboard())
             return
 
         QGraphicsScene.keyPressEvent(self, event)
@@ -386,6 +428,11 @@ class ElectroScene(QGraphicsScene):
         self.removeItem(item)
 
 
+    def removeGraphicsItems(self, items):
+        for item in items:
+            self.removeGraphicsItem(item)
+
+
     def removeGraphicsItemById(self, id):
         item = self.itemById(id)
         if not item:
@@ -402,16 +449,21 @@ class ElectroScene(QGraphicsScene):
 
 
     def setMode(self, mode):
+        if self.mode == 'pasteFromClipboard':
+            self.removeGraphicsItems(self.selectedGraphicsItems())
+
         if mode == "select":
-            self.drawMode = 'select'
+            self.mode = 'select'
             self.hideCursor()
             self.resetSelectionItems()
             if self.drawingLine:
                 self.removeGraphicsItem(self.drawingLine)
                 self.drawingLine = None
 
-        if mode == 'drawLine':
-            self.drawMode = 'drawLine'
+        if mode == "drawLine":
+            self.drawCursor(self.mapToSnap(self.mousePos))
+
+        self.mode = mode
 
 
     def calculateSelectionCenter(self):
@@ -435,6 +487,49 @@ class ElectroScene(QGraphicsScene):
         item.resetSelection()
         item.markPointsHide()
         self.calculateSelectionCenter()
+
+
+    def copySelectedToClipboard(self):
+        items = self.selectedGraphicsItems()
+        if not len(items):
+            return
+
+        ItemsProperties = []
+        for item in items:
+            ItemsProperties.append(item.properties())
+
+        jsonText = json.dumps(ItemsProperties)
+        self.editor.toClipboard(jsonText)
+
+
+    def pastFromClipboard(self, jsonText):
+        items = self.graphicsObjectFromJson(jsonText)
+        if not len(items):
+            return False
+
+        for item in items:
+            self.addItem(item)
+            self.itemAddToSelection(item)
+
+        for item in self.selectedGraphicsItems():
+            item.setCenter(self.selectedCenter)
+            item.moveByCenter(self.mapToSnap(self.mousePos))
+
+        self.history.addItems(items)
+
+        self.setMode("pasteFromClipboard")
+        return True
+
+
+    def graphicsObjectFromJson(self, jsonText):
+        try:
+            ItemsProperties = json.loads(str(jsonText))
+        except:
+            print("Bad clipboard data")
+            return []
+
+        self.resetSelectionItems()
+        return createGraphicsObjectsByProperties(ItemsProperties)
 
 
     def __str__(self):
