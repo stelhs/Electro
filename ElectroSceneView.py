@@ -93,13 +93,3 @@ class ElectroSceneView(QGraphicsView):
 
         QGraphicsView.keyPressEvent(self, event)
 
-
-    def mousePressEvent(self, ev):
-        if ev.button() == 2:
-            self.editor.drawState = 'select'
-            self.scene().hideCursor()
-            self.scene().resetSelectionItems()
-            return
-
-        QGraphicsView.mousePressEvent(self, ev)
-

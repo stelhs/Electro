@@ -12,10 +12,11 @@ class LineItem(QGraphicsLineItem):
         self.markP1 = None
         self.markP2 = None
         QGraphicsLineItem.__init__(self, parent, scene)
-#        self.setFlag(QGraphicsItem.ItemIsSelectable, True)
         self.mouseMoveDelta = None
         self.selectedPoint = None
         self.selected = False
+        self.center = None
+        self.setZValue(1)
 
 
     def type(self):
@@ -27,18 +28,19 @@ class LineItem(QGraphicsLineItem):
 
 
     def markPointsShow(self):
+        self.markPointsHide()
         self.markP1 = QGraphicsRectItem(None, self.scene())
+        self.markP1.setZValue(0)
         self.markP1.setPen(QPen(Qt.black, 1, Qt.SolidLine))
-        p1 = self.line().p1() + self.pos()
-        x1 = p1.x() - self.MARK_SIZE / 2
-        y1 = p1.y() - self.MARK_SIZE / 2
+        x1 = self.p1().x() - self.MARK_SIZE / 2
+        y1 = self.p1().y() - self.MARK_SIZE / 2
         self.markP1.setRect(x1, y1, self.MARK_SIZE, self.MARK_SIZE)
 
         self.markP2 = QGraphicsRectItem(None, self.scene())
+        self.markP2.setZValue(0)
         self.markP2.setPen(QPen(Qt.black, 1, Qt.SolidLine))
-        p2 = self.line().p2() + self.pos()
-        x1 = p2.x() - self.MARK_SIZE / 2
-        y1 = p2.y() - self.MARK_SIZE / 2
+        x1 = self.p2().x() - self.MARK_SIZE / 2
+        y1 = self.p2().y() - self.MARK_SIZE / 2
         self.markP2.setRect(x1, y1, self.MARK_SIZE, self.MARK_SIZE)
 
 
@@ -82,6 +84,7 @@ class LineItem(QGraphicsLineItem):
 
 
     def resetSelectionPoint(self):
+        self.markPointsHide()
         self.selectedPoint = None
 
 
@@ -111,18 +114,37 @@ class LineItem(QGraphicsLineItem):
         self.setPen(pen)
 
 
+    def setThickness(self, size):
+        pen = self.pen()
+        pen.setWidth(size)
+        self.setPen(pen)
+
+
     def isSelected(self):
         return self.selected
 
 
     def select(self):
-        self.setColor(Qt.blue)
+        self.setColor(Qt.magenta)
+        self.setThickness(6)
         self.selected = True
 
 
     def resetSelection(self):
         self.setColor(Qt.black)
+        self.setThickness(3)
         self.selected = False
+
+
+    def rotate(self, center, angle):
+        t = QTransform()
+        t.translate(center.x(), center.y())
+        t.rotate(angle)
+        t.translate(-center.x(), -center.y())
+        p1 = t.map(self.p1())
+        p2 = t.map(self.p2())
+        self.setP1(p1)
+        self.setP2(p2)
 
 
     def __exit__(self):

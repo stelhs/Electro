@@ -8,7 +8,6 @@ class ElectroEditor(QWidget):
 
     def __init__(self):
         QWidget.__init__(self)
-        self.drawState = 'select'
 
         self.scene = ElectroScene(self)
         self.sceneView = ElectroSceneView(self, self.scene)
@@ -29,12 +28,11 @@ class ElectroEditor(QWidget):
         key = event.key()
         print key
         if key == 16777216:  # ESC
-            self.drawState = 'select'
-            self.scene.hideCursor()
+            self.scene.setMode('select')
             return
 
         if key == 49:  # 1
-            self.drawState = 'drawLine'
+            self.scene.setMode('drawLine')
             return
 
         QWidget.keyPressEvent(self, event)
