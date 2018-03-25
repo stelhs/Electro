@@ -22,6 +22,7 @@ class ElectroScene(QGraphicsScene):
         self.selectedCenter = None
         self.keyCTRL = False
         self.mousePos = QPointF(0, 0)
+        self.drawLinesHistory = []  # temporary array of drawed lines between mouse left and right clicks
 
         self.history = History(self)
 
@@ -132,23 +133,14 @@ class ElectroScene(QGraphicsScene):
                 self.resetSelectionItems()
             return False
 
-        print("item found")
-
         if not item.isSelected() and len(self.selectedGraphicsItems()) and not self.multiSelected:
-            print("reset other items")
             self.resetSelectionItems()
 
         if self.multiSelected:
             self.itemAddToSelection(item)
             return
 
-        print("check for selected")
-        if item.isSelected():
-            print("remove selection")
-            self.itemRemoveFromSelection(item)
-        else:
-            print("add selection")
-            self.itemAddToSelection(item)
+        self.itemAddToSelection(item)
         return True
 
 
@@ -167,7 +159,7 @@ class ElectroScene(QGraphicsScene):
 
             if self.mode == 'drawLine':
                 if self.drawingLine:
-                    self.history.addItems([self.drawingLine])
+                    self.drawLinesHistory.append(self.drawingLine)
 
                 p = self.mapToSnap(ev.scenePos())
                 self.drawingLine = LineItem()
@@ -187,8 +179,7 @@ class ElectroScene(QGraphicsScene):
 
             if self.mode == 'drawLine':
                 if self.drawingLine:
-                    self.removeGraphicsItem(self.drawingLine)
-                    self.drawingLine = None
+                    self.stopLineDrawing()
                 else:
                     self.setMode('select')
                 return
@@ -198,6 +189,16 @@ class ElectroScene(QGraphicsScene):
                 return
 
         QGraphicsScene.mousePressEvent(self, ev)
+
+
+    def stopLineDrawing(self):
+        if not self.drawingLine:
+            return
+
+        self.removeGraphicsItem(self.drawingLine)
+        self.drawingLine = None
+        self.history.addItems(self.drawLinesHistory)
+        self.drawLinesHistory = []
 
 
     def mousePressEventMovePoint(self, ev):
@@ -222,9 +223,8 @@ class ElectroScene(QGraphicsScene):
 
         p = self.mapToSnap(ev.scenePos())
         for item in self.graphicsItems():
-            if not item.isPointSelected():
-                continue
-            item.modifySelectedPoint(p)
+            if item.isPointSelected():
+                item.modifySelectedPoint(p)
         self.calculateSelectionCenter()
         return True
 
@@ -270,16 +270,16 @@ class ElectroScene(QGraphicsScene):
             return
 
         for item in items:
+            item.unHighlight()
             if not item.isSelected():
                 item.markPointsHide()
 
         item = self.itemAt(ev.scenePos())
-        if not item:
+        if not item or item.type() != EDITOR_GRAPHICS_ITEM:
             return
 
-        if item.type() != EDITOR_GRAPHICS_ITEM:
-            return
         item.markPointsShow()
+        item.highlight()
 
 
     def mouseMoveEvent(self, ev):
@@ -359,6 +359,16 @@ class ElectroScene(QGraphicsScene):
             print(self)
             print(self.history)
             return
+
+        if key == 16777219:  # Backspace
+            if self.mode == 'drawLine':
+                if not len(self.drawLinesHistory):
+                    return
+
+                self.removeGraphicsItem(self.drawingLine)
+                self.drawingLine = self.drawLinesHistory.pop()
+                self.drawingLine.setP2(self.mousePos)
+                return
 
         if key == 32:  # Space
             self.history.changeItemsBefore(self.selectedGraphicsItems())
@@ -456,9 +466,7 @@ class ElectroScene(QGraphicsScene):
             self.mode = 'select'
             self.hideCursor()
             self.resetSelectionItems()
-            if self.drawingLine:
-                self.removeGraphicsItem(self.drawingLine)
-                self.drawingLine = None
+            self.stopLineDrawing()
 
         if mode == "drawLine":
             self.drawCursor(self.mapToSnap(self.mousePos))
@@ -486,6 +494,7 @@ class ElectroScene(QGraphicsScene):
     def itemRemoveFromSelection(self, item):
         item.resetSelection()
         item.markPointsHide()
+        item.unHighlight()
         self.calculateSelectionCenter()
 
 

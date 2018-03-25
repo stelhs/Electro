@@ -36,7 +36,9 @@ class ActionAddItems(HistoryAction):
 
 
     def redo(self):
+        self.scene.resetSelectionItems()
         for item in self.items:
+            self.scene.itemAddToSelection(item)
             self.scene.addItem(item)
 
 
@@ -101,9 +103,11 @@ class ActionChangeItems(HistoryAction):
 
 
     def redo(self):
+        self.scene.resetSelectionItems()
         for properties in self.itemsAfterProperties:
             item = self.scene.itemById(properties['id'])
             item.setProperties(properties)
+            self.scene.itemAddToSelection(item)
 
 
     def __str__(self):

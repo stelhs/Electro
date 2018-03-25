@@ -31,7 +31,8 @@ class LineItem(QGraphicsLineItem):
         self.setZValue(1)
         self.copyOf = None
         self.normalPen = QPen(Qt.black, 3, Qt.SolidLine, Qt.RoundCap)
-        self.selectedPen = QPen(Qt.magenta, 6, Qt.SolidLine, Qt.RoundCap)
+        self.selectedPen = QPen(Qt.magenta, 3, Qt.SolidLine, Qt.RoundCap)
+        self.highLightPen = QPen(Qt.blue, 5, Qt.SolidLine, Qt.RoundCap)
         self.setPen(self.normalPen)
         self.deltaCenter = None
 
@@ -164,6 +165,17 @@ class LineItem(QGraphicsLineItem):
     def select(self):
         self.setPen(self.selectedPen)
         self.selected = True
+
+
+    def highlight(self):
+        self.setPen(self.highLightPen)
+
+
+    def unHighlight(self):
+        if self.isSelected():
+            self.setPen(self.selectedPen)
+        else:
+            self.setPen(self.normalPen)
 
 
     def resetSelection(self):
