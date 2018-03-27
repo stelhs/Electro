@@ -10,6 +10,7 @@ class ElectroEditor(QWidget):
         QWidget.__init__(self)
         self.app = app
         self.scene = ElectroScene(self)
+        self.statusBar = QLabel()
         self.sceneView = ElectroSceneView(self, self.scene)
         self.sceneView.setMouseTracking(True)
         self.sceneView.setFixedSize(QSize(800, 400))
@@ -19,6 +20,7 @@ class ElectroEditor(QWidget):
 
         self.layout = QGridLayout(self)
         self.layout.addWidget(self.sceneView)
+        self.layout.addWidget(self.statusBar)
         self.show()
 
         self.matrixStep = 10
@@ -35,7 +37,14 @@ class ElectroEditor(QWidget):
             self.scene.setMode('drawLine')
             return
 
-        QWidget.keyPressEvent(self, event)
+        self.scene.keyPressEvent(event)
+        return
+#        QWidget.keyPressEvent(self, event)
+
+
+    def keyReleaseEvent(self, event):
+        self.scene.keyReleaseEvent(event)
+        return
 
 
     def toClipboard(self, text):
@@ -44,3 +53,11 @@ class ElectroEditor(QWidget):
 
     def fromClipboard(self):
         return self.app.clipboard().text()
+
+
+    def setCursorCoordinates(self, point):
+        self.setTextStatusBar("x: %d, y: %d" % (point.x(), point.y()))
+
+
+    def setTextStatusBar(self, text):
+        self.statusBar.setText(text)

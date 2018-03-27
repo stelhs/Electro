@@ -12,6 +12,7 @@ class ElectroSceneView(QGraphicsView):
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
         self.zoomFactor = 1.25
         self.setAlignment(Qt.AlignTop | Qt.AlignLeft);
+        self.setFocusPolicy(Qt.NoFocus)
 
 
     def drawBackground(self, qp, rect):
