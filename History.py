@@ -15,68 +15,57 @@ class HistoryAction():
     def copyProperties(self, items):
         ItemsProperties = []
         for item in items:
-             ItemsProperties.append(item.properties())
+            ItemsProperties.append(item.properties())
         return ItemsProperties
 
 
-class ActionAddItems(HistoryAction):
+class ActionAddRemoveItems(HistoryAction):
 
 
-    def __init__(self, scene, items):
+    def __init__(self, scene, type, items):
         self.scene = scene
         self.items = items
+        self.type = type
 
 
     def type(self):
-        return 'addItems'
+        return 'addRemoveItems'
 
 
-    def undo(self):
-        print("undo AddItems")
-        for item in self.items:
-            self.scene.removeGraphicsItemById(item.id())
+    def remove(self):
+        self.scene.removeGraphicsItems(self.items)
 
 
-    def redo(self):
-        print("redo AddItems")
+    def add(self):
         self.scene.resetSelectionItems()
         for item in self.items:
             self.scene.addGraphicsItem(item)
 
 
-    def __str__(self):
-        str = "ActionAddItems contains:\n"
-        for item in self.items:
-            str += "\t\t%s\n" % item
-        return str
-
-
-class ActionRemoveItems(HistoryAction):
-
-
-    def __init__(self, scene, items):
-        self.scene = scene
-        self.items = items
-
-
-    def type(self):
-        return 'removeItems'
-
-
     def undo(self):
+        if self.type == 'add':
+            print("undo AddItems")
+            self.remove()
+            return
         print("undo RemoveItems")
-        for item in self.items:
-            self.scene.addGraphicsItem(item)
+        self.add()
 
 
     def redo(self):
+        if self.type == 'add':
+            print("redo AddItems")
+            self.add()
+            return
         print("redo RemoveItems")
-        for item in self.items:
-            self.scene.removeGraphicsItemById(item.id())
+        self.remove()
 
 
     def __str__(self):
-        str = "ActionRemoveItems contains:\n"
+        if self.type == 'add':
+            str = "ActionAddItems contains:\n"
+        else:
+            str = "ActionRemoveItems contains:\n"
+
         for item in self.items:
             str += "\t\t%s\n" % item
         return str
@@ -88,12 +77,27 @@ class ActionChangeItems(HistoryAction):
     def __init__(self, scene, items):
         self.scene = scene
         self.items = items
+        print(len(self.items))
         self.itemsBeforeProperties = self.copyProperties(items)
         self.itemsAfterProperties = []
 
 
-    def setAfter(self, items):
-        self.itemsAfterProperties = self.copyProperties(items)
+    def finish(self):
+        changed = False
+        for item in self.items:
+            for prop in self.itemsBeforeProperties:
+                if prop['id'] != item.id():
+                    continue
+
+                if not item.compareProperties(prop):
+                    changed = True
+
+        if not changed:
+            print("not changed")
+            return
+
+        self.itemsAfterProperties = self.copyProperties(self.items)
+        return True
 
 
     def type(self):
@@ -124,35 +128,55 @@ class ActionChangeItems(HistoryAction):
         return str
 
 
-class ActionAddGroup(HistoryAction):
+class ActionPackUnpackGroup(HistoryAction):
 
 
-    def __init__(self, scene, group):
+    def __init__(self, scene, type, group):
         self.scene = scene
+        self.type = type
         self.group = group
-        self.items = group.items()
 
 
     def type(self):
         return 'addGroup'
 
 
-    def undo(self):
-        print("undo AddGroup")
+    def pack(self):
+        print("pack")
+        self.scene.resetSelectionItems()
+        self.scene.removeGraphicsItems(self.group.items())
+        self.scene.addGraphicsItem(self.group)
+
+
+    def unpack(self):
         self.group.markPointsHide()
-        self.scene.removeGraphicsItemById(self.group.id())
+        self.scene.unpackGroup(self.group)
+
+
+    def undo(self):
+        if self.type == 'pack':
+            print("undo packGroup")
+            self.unpack()
+            return
+        print("undo unpackGroup")
+        self.pack()
 
 
     def redo(self):
-        print("redo AddGroup")
-        self.scene.resetSelectionItems()
-        self.scene.addGraphicsItem(self.group)
-        self.group.addItems(self.items)
+        if self.type == 'pack':
+            print("redo packGroup")
+            self.pack()
+            return
+        print("redo unpackGroup")
+        self.unpack()
 
 
     def __str__(self):
-        str = "ActionAddGroup contains:\n"
-        for item in self.items:
+        if self.type == 'pack':
+            str = "ActionPackGroup id: %d contains:\n" % self.group.id()
+        else:
+            str = "ActionUnpackGroup id %d contains:\n" % self.group.id()
+        for item in self.group.items():
             str += "\t\t%s\n" % item
         return str
 
@@ -175,11 +199,13 @@ class History():
 
         self.future = []
 
+        action = ActionAddRemoveItems(self.scene, 'add', items)
         if actions:
-            actions.append(ActionAddItems(self.scene, items))
+            actions.append(action)
             return
+
         actions = []
-        actions.append(ActionAddItems(self.scene, items))
+        actions.append(action)
         self.history.append(actions)
         return actions
 
@@ -190,26 +216,30 @@ class History():
 
         self.future = []
 
+        action = ActionAddRemoveItems(self.scene, 'remove', items)
         if actions:
-            actions.append(ActionRemoveItems(self.scene, items))
+            actions.append(action)
             return
+
         actions = []
-        actions.append(ActionRemoveItems(self.scene, items))
+        actions.append(action)
         self.history.append(actions)
         return actions
 
 
-    def changeItemsBefore(self, items):
+    def changeItemsStart(self, items):
         self.changeItemsAction = ActionChangeItems(self.scene, items)
 
 
-    def changeItemsAfter(self, items, actions=None):
+    def changeItemsFinish(self, actions=None):
         if not self.changeItemsAction:
+            return
+
+        if not self.changeItemsAction.finish():
             return
 
         self.future = []
 
-        self.changeItemsAction.setAfter(items)
         if actions:
             actions.append(self.changeItemsAction)
             return
@@ -220,17 +250,36 @@ class History():
         return actions
 
 
-    def addGroup(self, group, actions=None):
+    def packGroup(self, group, actions=None):
         if group.type() != GROUP_TYPE:
             return
 
         self.future = []
 
+        action = ActionPackUnpackGroup(self.scene, 'pack', group)
         if actions:
-            actions.append(ActionAddGroup(self.scene, group))
+            actions.append(action)
             return
+
         actions = []
-        actions.append(ActionAddGroup(self.scene, group))
+        actions.append(action)
+        self.history.append(actions)
+        return actions
+
+
+    def unpackGroup(self, group, actions=None):
+        if group.type() != GROUP_TYPE:
+            return
+
+        self.future = []
+
+        action = ActionPackUnpackGroup(self.scene, 'unpack', group)
+        if actions:
+            actions.append(action)
+            return
+
+        actions = []
+        actions.append(action)
         self.history.append(actions)
         return actions
 

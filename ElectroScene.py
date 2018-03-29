@@ -58,7 +58,7 @@ class ElectroScene(QGraphicsScene):
 
 
     def mousePressEventStartRectSelection(self, ev):
-        item = self.itemAt(ev.scenePos())
+        item = self.graphicItemByCoordinate(ev.scenePos())
         if item:
             return False
 
@@ -118,21 +118,18 @@ class ElectroScene(QGraphicsScene):
             # Select all items in rectangle
             items = self.items(rect)
             for item in items:
-                if not self.isGraphicsItem(item):
+                if not self.isGraphicsItem(item) or item == selectRect:
                     continue
-                if item == selectRect:
-                    continue
+                item = item.root()
                 self.itemAddToSelection(item)
 
         return True
 
 
     def mousePressEventSelectItem(self, ev):
-        item = self.itemAt(ev.scenePos())
-        if not item or (not self.isGraphicsItem(item)) or item.group():
-            if not self.multiSelected:
-                self.resetSelectionItems()
-            return False
+        item = self.graphicItemByCoordinate(ev.scenePos())
+        if not item:
+            return
 
         if not item.isSelected() and len(self.selectedGraphicsItems()) and not self.multiSelected:
             self.resetSelectionItems()
@@ -215,7 +212,7 @@ class ElectroScene(QGraphicsScene):
         if not len(self.movedPointItems):
             return False
 
-        self.history.changeItemsBefore(self.movedPointItems)
+        self.history.changeItemsStart(self.movedPointItems)
         return True
 
 
@@ -232,13 +229,12 @@ class ElectroScene(QGraphicsScene):
 
 
     def mousePressEventMoveItem(self, ev):
-        item = self.itemAt(ev.scenePos())
-        if not item or not self.isGraphicsItem(item) or item.group():
-            return False
-
+        item = self.graphicItemByCoordinate(ev.scenePos())
+        if not item:
+            return
         item.mouseMoveDelta = ev.scenePos() - item.pos()
         self.movingItem = item
-        self.history.changeItemsBefore(self.selectedGraphicsItems())
+        self.history.changeItemsStart(self.selectedGraphicsItems())
         return True
 
 
@@ -274,10 +270,9 @@ class ElectroScene(QGraphicsScene):
             if not item.isSelected():
                 item.markPointsHide()
 
-        item = self.itemAt(ev.scenePos())
-        if not item or not self.isGraphicsItem(item) or item.group():
+        item = self.graphicItemByCoordinate(ev.scenePos())
+        if not item:
             return
-
         item.markPointsShow()
         item.highlight()
 
@@ -320,13 +315,13 @@ class ElectroScene(QGraphicsScene):
         selectingByMouse = self.selectingByMouse
 
         if len(self.movedPointItems):
-            self.history.changeItemsAfter(self.movedPointItems)
+            self.history.changeItemsFinish()
             for item in self.movedPointItems:
                 item.resetSelectionPoint()
             self.movedPointItems = []
 
         if self.movingItem:
-            self.history.changeItemsAfter(self.selectedGraphicsItems())
+            self.history.changeItemsFinish()
             self.movingItem = None
 
         self.selectingByMouse = None
@@ -338,14 +333,19 @@ class ElectroScene(QGraphicsScene):
         QGraphicsScene.mouseReleaseEvent(self, ev)
 
 
+    def graphicItemByCoordinate(self, point):
+        item = self.itemAt(point)
+        if not item or not self.isGraphicsItem(item):
+            return False
+        return item.root()
+
+
     def keyPressEvent(self, event):
         key = event.key()
         if key == 16777223:  # DEL
             items = self.selectedGraphicsItems()
             self.history.removeItems(items)
-            for item in items:
-                self.removeGraphicsItem(item)
-                item.__exit__()
+            self.removeGraphicsItems(items)
             return
 
         if key == 16777248:  # Shift
@@ -373,11 +373,11 @@ class ElectroScene(QGraphicsScene):
                 return
 
         if key == 32:  # Space
-            self.history.changeItemsBefore(self.selectedGraphicsItems())
+            self.history.changeItemsStart(self.selectedGraphicsItems())
             for item in self.selectedGraphicsItems():
-                item.rotate(self.selectedCenter, 90)
                 item.setCenter(self.selectedCenter)
-            self.history.changeItemsAfter(self.selectedGraphicsItems())
+                item.rotate(self.selectedCenter, 90)
+            self.history.changeItemsFinish()
             return
 
         if self.keyCTRL and key == 65:  # CTLR + A
@@ -406,11 +406,11 @@ class ElectroScene(QGraphicsScene):
             return
 
         if key == 76:  # l (lock)
-            self.selectedToNewGroup("lock objects")
+            self.packSelectedIntoGroup("lock objects")
             return
 
         if key == 85:  # u (unlock)
-            self.unpackSelectedGroup()
+            self.unpackSelectedGroups()
             return
 
         if key == 16777235:  # UP
@@ -459,10 +459,10 @@ class ElectroScene(QGraphicsScene):
         if not len(items):
             return
 
-        self.history.changeItemsBefore(items)
+        self.history.changeItemsStart(items)
         for item in items:
             item.moveByCenter(point)
-        self.history.changeItemsAfter(items)
+        self.history.changeItemsFinish()
 
 
     def selectedGraphicsItems(self):
@@ -472,25 +472,6 @@ class ElectroScene(QGraphicsScene):
                 continue
             items.append(item)
         return items
-
-
-    def removeGraphicsItem(self, item):
-        item.__exit__()
-        self.graphicsItemsList.remove(item)
-        self.removeItem(item)
-
-
-    def removeGraphicsItems(self, items):
-        for item in items:
-            self.removeGraphicsItem(item)
-
-
-    def removeGraphicsItemById(self, id):
-        item = self.itemById(id)
-        if not item:
-            return False
-        self.removeGraphicsItem(item)
-        return True
 
 
     def itemById(self, id):
@@ -591,8 +572,14 @@ class ElectroScene(QGraphicsScene):
     def addGraphicsItem(self, item):
         if not self.isGraphicsItem(item):
             return
+
         self.graphicsItemsList.append(item)
-        self.addItem(item)
+        item.setScene(self)
+
+
+    def addGraphicsItems(self, items):
+        for item in items:
+            self.addGraphicsItem(item)
 
 
     def isGraphicsItem(self, item):
@@ -601,19 +588,20 @@ class ElectroScene(QGraphicsScene):
         return True
 
 
-    def selectedToNewGroup(self, name="undefined"):
+    def packSelectedIntoGroup(self, name):
         if len(self.selectedGraphicsItems()) < 2:
             return None
+        group = self.packItemsIntoGroup(self.selectedGraphicsItems(), name)
+        self.history.packGroup(group)
+
+
+    def packItemsIntoGroup(self, items, name="undefined"):
         group = GraphicItemGroup()
         group.setName(name)
-        items = self.selectedGraphicsItems()
         self.resetSelectionItems()
+        self.removeGraphicsItems(items)
         group.addItems(items)
-        for item in items:
-            item.markPointsHide()
-            self.graphicsItemsList.remove(item)
         self.addGraphicsItem(group)
-        self.history.addGroup(group)
         return group
 
 
@@ -622,13 +610,24 @@ class ElectroScene(QGraphicsScene):
             return
         group.markPointsHide()
         self.removeGraphicsItem(group)
+        self.addGraphicsItems(group.items())
 
 
-    def unpackSelectedGroup(self):
+    def unpackSelectedGroups(self):
         for item in self.selectedGraphicsItems():
             if item.type() == GROUP_TYPE:
+                self.history.unpackGroup(item)
                 self.unpackGroup(item)
-                self.history.removeGroup(item)
+
+
+    def removeGraphicsItem(self, item):
+        self.graphicsItemsList.remove(item)
+        item.removeFromQScene()
+
+
+    def removeGraphicsItems(self, items):
+        for item in items:
+            self.removeGraphicsItem(item)
 
 
     def __str__(self):
