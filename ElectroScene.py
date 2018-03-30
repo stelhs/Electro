@@ -183,6 +183,12 @@ class ElectroScene(QGraphicsScene):
                 self.pastFromClipboard()
                 return
 
+            if self.mode == 'moveSelectedItems':
+                self.history.changeItemsFinish()
+                self.resetSelectionItems()
+                self.mode = 'select'
+                return
+
         if ev.button() == 2:
             if self.mode == 'select':
                 self.resetSelectionItems()
@@ -197,6 +203,12 @@ class ElectroScene(QGraphicsScene):
 
             if self.mode == 'pasteFromClipboard':
                 self.setMode('select')
+                return
+
+            if self.mode == 'moveSelectedItems':
+                self.history.changeItemsFinish()
+                self.mode = 'select'
+                self.history.undo()
                 return
 
         QGraphicsScene.mousePressEvent(self, ev)
@@ -311,9 +323,16 @@ class ElectroScene(QGraphicsScene):
             self.moveSelectedItems(self.mapToSnap(ev.scenePos()))
             return
 
+        if self.mode == 'moveSelectedItems':
+            self.moveSelectedItems(self.mapToSnap(ev.scenePos()))
+            return
+
 
     def mouseReleaseEvent(self, ev):
         if self.mode == 'pasteFromClipboard':
+            return
+
+        if self.mode == 'moveSelectedItems':
             return
 
         selectingByMouse = self.selectingByMouse
@@ -422,6 +441,15 @@ class ElectroScene(QGraphicsScene):
 
         if key == 85:  # u (unlock)
             self.unpackSelectedGroups()
+            return
+
+        if key == 88:  # x (cut and move selected items)
+            items = self.selectedGraphicsItems()
+            self.history.changeItemsStart(items)
+            for item in items:
+                item.moveByCenter(self.mapToSnap(self.mousePos))
+
+            self.setMode("moveSelectedItems")
             return
 
         if key == 16777235:  # UP
