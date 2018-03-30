@@ -13,16 +13,35 @@ LINE_TYPE = QGraphicsItem.UserType + 2
 GROUP_TYPE = QGraphicsItem.UserType + 3
 RECT_TYPE = QGraphicsItem.UserType + 4
 
+graphicsObjectsTypeNames = {
+    NOT_DEFINED_TYPE: "not_defined",
+    LINE_TYPE: "line",
+    GROUP_TYPE: "group",
+    RECT_TYPE: "rectangle",
+}
+
+
+def typeByName(name):
+    for type, value in graphicsObjectsTypeNames.items():
+        if name == value:
+            return type
+    return NOT_DEFINED_TYPE
+
+# NOT_DEFINED_TYPE = 'not_defined'
+# LINE_TYPE = 'line'
+# GROUP_TYPE = 'group'
+# RECT_TYPE = 'rectangle'
+
 
 def createGraphicsObjectsByProperties(properties):
     items = []
     for itemProp in properties:
-        if itemProp['type'] == GROUP_TYPE:
+        if typeByName(itemProp['type']) == GROUP_TYPE:
             item = GraphicItemGroup()
             item.setProperties(itemProp)
             items.append(item)
 
-        if itemProp['type'] == LINE_TYPE:
+        if typeByName(itemProp['type']) == LINE_TYPE:
             item = GraphicItemLine()
             item.setProperties(itemProp)
             items.append(item)
@@ -53,6 +72,10 @@ class GraphicItem():
 
     def type(self):
         return NOT_DEFINED_TYPE
+
+
+    def typeName(self):
+        return graphicsObjectsTypeNames[self.type()]
 
 
     def id(self):
@@ -380,7 +403,7 @@ class GraphicItemGroup(GraphicItem):
         properties = {}
         properties['id'] = self.id()
         properties['name'] = self.name()
-        properties['type'] = self.type()
+        properties['type'] = self.typeName()
         properties['mountPoint'] = {'x': self.mountPoint.x(),
                                     'y': self.mountPoint.y()}
 
@@ -393,7 +416,7 @@ class GraphicItemGroup(GraphicItem):
 
 
     def setProperties(self, properties):
-        if properties['type'] != GROUP_TYPE:
+        if typeByName(properties['type']) != GROUP_TYPE:
             return
 
         self.markPointsHide()
@@ -422,12 +445,12 @@ class GraphicItemGroup(GraphicItem):
                 itemProperties['mountPoint']['x'] = itemMountPoint.x()
                 itemProperties['mountPoint']['y'] = itemMountPoint.y()
 
-                if itemProperties['type'] == LINE_TYPE:
+                if typeByName(itemProperties['type']) == LINE_TYPE:
                     item = GraphicItemLine()
                     item.setProperties(itemProperties)
                     newItems.append(item)
 
-                if itemProperties['type'] == GROUP_TYPE:
+                if typeByName(itemProperties['type']) == GROUP_TYPE:
                     item = GraphicItemGroup()
                     item.setProperties(itemProperties)
                     newItems.append(item)
@@ -629,14 +652,14 @@ class GraphicItemLine(GraphicItem, QGraphicsLineItem):
 
     def properties(self):
         properties = GraphicItem.properties(self)
-        properties['type'] = self.type()
+        properties['type'] = self.typeName()
         properties['p1'] = {"x" : self.line().p1().x(), "y": self.line().p1().y()}
         properties['p2'] = {"x" : self.line().p2().x(), "y": self.line().p2().y()}
         return properties
 
 
     def setProperties(self, properties):
-        if properties['type'] != LINE_TYPE:
+        if typeByName(properties['type']) != LINE_TYPE:
             return
         GraphicItem.setProperties(self, properties)
         line = QLineF(QPointF(properties['p1']['x'], properties['p1']['y']),

@@ -407,7 +407,9 @@ class ElectroScene(QGraphicsScene):
 
         if self.keyCTRL and key == 88:  # CTLR + X
             self.copySelectedToClipboard()
-            self.removeGraphicsItems(self.selectedGraphicsItems())
+            items = self.selectedGraphicsItems()
+            self.history.removeItems(items)
+            self.removeGraphicsItems(items)
             return
 
         if self.keyCTRL and key == 86:  # CTLR + V
