@@ -1,4 +1,5 @@
 from GraphicsItems import *
+from pprint import *
 
 
 class HistoryAction():
@@ -146,11 +147,13 @@ class ActionPackUnpackGroup(HistoryAction):
         self.scene.resetSelectionItems()
         self.scene.removeGraphicsItems(self.group.items())
         self.scene.addGraphicsItem(self.group)
+        self.scene.itemAddToSelection(self.group)
 
 
     def unpack(self):
         self.group.markPointsHide()
-        self.scene.unpackGroup(self.group)
+        unpackedItems = self.scene.unpackGroup(self.group)
+        self.scene.itemsAddToSelection(unpackedItems)
 
 
     def undo(self):

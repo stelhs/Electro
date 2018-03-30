@@ -17,7 +17,7 @@ class ElectroScene(QGraphicsScene):
         self.drawingLine = None
         self.multiSelected = False  # Shift key is pressed
         self.selectingByMouse = None  # select rectangular area for selecting items
-        self.movingItem = None  # Moving item
+        self.movingItem = False  # Moving selected items mode
         self.movedPointItems = []  # List of Moving point items
         self.mode = 'select'
         self.selectedCenter = None
@@ -129,16 +129,20 @@ class ElectroScene(QGraphicsScene):
     def mousePressEventSelectItem(self, ev):
         item = self.graphicItemByCoordinate(ev.scenePos())
         if not item:
+            if not self.multiSelected:
+                self.resetSelectionItems()
             return
 
         if not item.isSelected() and len(self.selectedGraphicsItems()) and not self.multiSelected:
             self.resetSelectionItems()
 
         if self.multiSelected:
-            self.itemAddToSelection(item)
+            if not item.isSelected():
+                self.itemAddToSelection(item)
+            else:
+                self.itemRemoveFromSelection(item)
             return
 
-        print("start moving")
         self.itemAddToSelection(item)
         return True
 
@@ -168,7 +172,15 @@ class ElectroScene(QGraphicsScene):
                 return
 
             if self.mode == 'pasteFromClipboard':
+                if not self.keyCTRL:
+                    self.history.addItems(self.selectedGraphicsItems())
+                    self.resetSelectionItems()
+                    self.mode = 'select'
+                    return
+                self.history.addItems(self.selectedGraphicsItems())
+                self.resetSelectionItems()
                 self.mode = 'select'
+                self.pastFromClipboard()
                 return
 
         if ev.button() == 2:
@@ -232,32 +244,24 @@ class ElectroScene(QGraphicsScene):
         item = self.graphicItemByCoordinate(ev.scenePos())
         if not item:
             return
-        item.mouseMoveDelta = ev.scenePos() - item.pos()
-        self.movingItem = item
-        self.history.changeItemsStart(self.selectedGraphicsItems())
-        return True
+
+        self.selectedCenter = self.mapToSnap(ev.scenePos())
+        for item in self.selectedGraphicsItems():
+            item.setCenter(self.selectedCenter)
+        self.movingItem = True
+        return
 
 
     def mouseMoveEventMoveItem(self, ev):
         if not self.movingItem:
             return False
-
-        delta = self.movingItem.mouseMoveDelta
-        p = QPointF(ev.scenePos() - delta)
-        p = self.mapToSnap(p)
-        pos = self.movingItem.pos()
-        self.movingItem.setPos(p)
-        if not self.movingItem.isSelected():
-            self.itemAddToSelection(self.movingItem)
-
         items = self.selectedGraphicsItems()
+        if not items:
+            return
+
         for item in items:
-            if item == self.movingItem:
-                continue
-            item.setPos(QPointF(p + item.pos() - pos))
-            item.markPointsShow()
-        self.calculateSelectionCenter()
-        return True
+            item.moveByCenter(self.mapToSnap(ev.scenePos()))
+        return
 
 
     def mouseMoveEventDisplayPoints(self, ev):
@@ -304,14 +308,14 @@ class ElectroScene(QGraphicsScene):
             return
 
         if self.mode == 'pasteFromClipboard':
-            for item in self.selectedGraphicsItems():
-                item.moveByCenter(self.mapToSnap(ev.scenePos()))
-            self.calculateSelectionCenter()
+            self.moveSelectedItems(self.mapToSnap(ev.scenePos()))
             return
 
 
     def mouseReleaseEvent(self, ev):
-#        drawingLine = self.drawingLine
+        if self.mode == 'pasteFromClipboard':
+            return
+
         selectingByMouse = self.selectingByMouse
 
         if len(self.movedPointItems):
@@ -322,7 +326,7 @@ class ElectroScene(QGraphicsScene):
 
         if self.movingItem:
             self.history.changeItemsFinish()
-            self.movingItem = None
+            self.movingItem = False
 
         self.selectingByMouse = None
 
@@ -358,8 +362,8 @@ class ElectroScene(QGraphicsScene):
             return
 
         if key == 83:  # S
-            print(self)
             print(self.history)
+            print(self)
             return
 
         if key == 16777219:  # Backspace
@@ -373,11 +377,16 @@ class ElectroScene(QGraphicsScene):
                 return
 
         if key == 32:  # Space
-            self.history.changeItemsStart(self.selectedGraphicsItems())
-            for item in self.selectedGraphicsItems():
-                item.setCenter(self.selectedCenter)
-                item.rotate(self.selectedCenter, 90)
-            self.history.changeItemsFinish()
+            if self.mode == 'pasteFromClipboard':
+                self.calculateSelectionCenter()
+
+            if self.mode != 'pasteFromClipboard':
+                self.history.changeItemsStart(self.selectedGraphicsItems())
+
+            self.rotateSelectedItems(90)
+
+            if self.mode != 'pasteFromClipboard':
+                self.history.changeItemsFinish()
             return
 
         if self.keyCTRL and key == 65:  # CTLR + A
@@ -402,7 +411,7 @@ class ElectroScene(QGraphicsScene):
             return
 
         if self.keyCTRL and key == 86:  # CTLR + V
-            self.pastFromClipboard(self.editor.fromClipboard())
+            self.pastFromClipboard()
             return
 
         if key == 76:  # l (lock)
@@ -416,25 +425,29 @@ class ElectroScene(QGraphicsScene):
         if key == 16777235:  # UP
             p = self.selectedCenter
             p.setY(p.y() - self.editor.matrixStep)
-            self.moveSelectedItems(p)
+            self.moveSelectedItemsByKeys(p)
+            self.calculateSelectionCenter()
             return
 
         if key == 16777237:  # DOWN
             p = self.selectedCenter
             p.setY(p.y() + self.editor.matrixStep)
-            self.moveSelectedItems(p)
+            self.moveSelectedItemsByKeys(p)
+            self.calculateSelectionCenter()
             return
 
         if key == 16777234:  # LEFT
             p = self.selectedCenter
             p.setX(p.x() - self.editor.matrixStep)
-            self.moveSelectedItems(p)
+            self.moveSelectedItemsByKeys(p)
+            self.calculateSelectionCenter()
             return
 
         if key == 16777236:  # RIGHT
             p = self.selectedCenter
             p.setX(p.x() + self.editor.matrixStep)
-            self.moveSelectedItems(p)
+            self.moveSelectedItemsByKeys(p)
+            self.calculateSelectionCenter()
             return
 
         QGraphicsScene.keyPressEvent(self, event)
@@ -454,15 +467,23 @@ class ElectroScene(QGraphicsScene):
         QGraphicsScene.keyPressEvent(self, event)
 
 
-    def moveSelectedItems(self, point):
+    def moveSelectedItemsByKeys(self, point):
         items = self.selectedGraphicsItems()
         if not len(items):
             return
 
         self.history.changeItemsStart(items)
+        self.moveSelectedItems(point)
+        self.history.changeItemsFinish()
+
+
+    def moveSelectedItems(self, point):
+        items = self.selectedGraphicsItems()
+        if not len(items):
+            return
+
         for item in items:
             item.moveByCenter(point)
-        self.history.changeItemsFinish()
 
 
     def selectedGraphicsItems(self):
@@ -516,6 +537,11 @@ class ElectroScene(QGraphicsScene):
             item.setCenter(self.selectedCenter)
 
 
+    def itemsAddToSelection(self, items):
+        for item in items:
+            self.itemAddToSelection(item)
+
+
     def itemRemoveFromSelection(self, item):
         item.resetSelection()
         item.markPointsHide()
@@ -536,19 +562,20 @@ class ElectroScene(QGraphicsScene):
         self.editor.toClipboard(jsonText)
 
 
-    def pastFromClipboard(self, jsonText):
+    def pastFromClipboard(self):
+        jsonText = self.editor.fromClipboard()
+        print("pastFromClipboard")
         items = self.graphicsObjectFromJson(jsonText)
         if not len(items):
+            print("no data")
             return False
 
         for item in items:
             self.addGraphicsItem(item)
             self.itemAddToSelection(item)
 
-        for item in self.selectedGraphicsItems():
+        for item in items:
             item.moveByCenter(self.mapToSnap(self.mousePos))
-
-        self.history.addItems(items)
 
         self.setMode("pasteFromClipboard")
         return True
@@ -563,6 +590,13 @@ class ElectroScene(QGraphicsScene):
 
         self.resetSelectionItems()
         return createGraphicsObjectsByProperties(ItemsProperties)
+
+
+    def rotateSelectedItems(self, angle):
+        for item in self.selectedGraphicsItems():
+            item.setCenter(self.selectedCenter)
+            item.rotate(self.selectedCenter, angle)
+            item.setCenter(self.selectedCenter)
 
 
     def graphicsItems(self):
@@ -593,6 +627,7 @@ class ElectroScene(QGraphicsScene):
             return None
         group = self.packItemsIntoGroup(self.selectedGraphicsItems(), name)
         self.history.packGroup(group)
+        self.itemAddToSelection(group)
 
 
     def packItemsIntoGroup(self, items, name="undefined"):
@@ -609,15 +644,18 @@ class ElectroScene(QGraphicsScene):
         if group.type() != GROUP_TYPE:
             return
         group.markPointsHide()
+        items = group.items()
         self.removeGraphicsItem(group)
-        self.addGraphicsItems(group.items())
+        self.addGraphicsItems(items)
+        return items
 
 
     def unpackSelectedGroups(self):
         for item in self.selectedGraphicsItems():
             if item.type() == GROUP_TYPE:
                 self.history.unpackGroup(item)
-                self.unpackGroup(item)
+                unpackedItems = self.unpackGroup(item)
+                self.itemsAddToSelection(unpackedItems)
 
 
     def removeGraphicsItem(self, item):

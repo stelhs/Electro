@@ -1,5 +1,6 @@
 from ElectroScene import *
 from PyQt4.QtGui import *
+from pprint import *
 import json
 from PyQt4.Qt import QPoint
 from curses.textpad import rectangle
@@ -10,17 +11,22 @@ graphicsItemLastId = 0
 NOT_DEFINED_TYPE = QGraphicsItem.UserType + 1
 LINE_TYPE = QGraphicsItem.UserType + 2
 GROUP_TYPE = QGraphicsItem.UserType + 3
-RECT_TYPE_GROUP = QGraphicsItem.UserType + 4
-RECT_TYPE = QGraphicsItem.UserType + 5
+RECT_TYPE = QGraphicsItem.UserType + 4
 
 
 def createGraphicsObjectsByProperties(properties):
     items = []
     for itemProp in properties:
-        if itemProp['type'] == 'LineItem':
-            item = LineItem()
+        if itemProp['type'] == GROUP_TYPE:
+            item = GraphicItemGroup()
             item.setProperties(itemProp)
             items.append(item)
+
+        if itemProp['type'] == LINE_TYPE:
+            item = GraphicItemLine()
+            item.setProperties(itemProp)
+            items.append(item)
+
     return items
 
 
@@ -38,6 +44,7 @@ class GraphicItem():
         self.graphicsItemsList = []
         self._name = ""
         self._parentItem = None
+        self.mouseMoveDelta = None
 
         global graphicsItemLastId
         graphicsItemLastId += 1
@@ -116,6 +123,12 @@ class GraphicItem():
 
     def setCenter(self, point):
         self.deltaCenter = self.pos() - point
+
+
+    def moveByCenter(self, point):
+        self.setPos(QPointF(point + self.deltaCenter))
+        if self.isSelected():
+            self.markPointsShow()
 
 
     def items(self):
@@ -235,7 +248,7 @@ class GraphicItemGroup(GraphicItem):
         self.selectedPoint = None
         self.markRect = None
         self._scene = None
-        self.mountPoint = None
+        self.mountPoint = QPointF(0, 0)
 
 
     def type(self):
@@ -252,12 +265,12 @@ class GraphicItemGroup(GraphicItem):
             parentMountPoint = self.parent().pos()
 
         newMountPoint = point - parentMountPoint
-
         delta = newMountPoint - self.mountPoint
         for item in self.items():
             item.setPos(item.pos() + delta)
 
         self.mountPoint = newMountPoint
+        # print("%d setPos %s, mountPoint = %s, pos = %s" % (self.id(), point, self.mountPoint, self.pos()))
 
 
     def addItems(self, items):
@@ -295,14 +308,21 @@ class GraphicItemGroup(GraphicItem):
 
     def setScene(self, scene):
         self._scene = scene
+        print("%d 1_setScene, pos = %s" % (self.id(), self.pos()))
 
         for item in self.items():
             item.setScene(scene)
 
-        self.calculateMountPoint()
+        print("%d 2_setScene, pos = %s" % (self.id(), self.pos()))
+
+        if not self.pos():
+            self.calculateMountPoint()
+        print("%d 3_setScene, pos = %s" % (self.id(), self.pos()))
 
         for item in self.items():
             item.setParent(self)
+
+        print("%d 4_setScene, pos = %s" % (self.id(), self.pos()))
 
 
     def scene(self):
@@ -310,11 +330,12 @@ class GraphicItemGroup(GraphicItem):
 
 
     def setParent(self, parentItem):
+        if self.parent() and parentItem:
+            return
+        print("%d setParent %s" % (self.id(), parentItem))
         GraphicItem.setParent(self, parentItem)
         if parentItem:
             self.mountPoint -= parentItem.pos()
-        else:
-            self.mountPoint = None
 
 
     def pos(self):
@@ -351,8 +372,8 @@ class GraphicItemGroup(GraphicItem):
             return None
 
         sceneRect = poligon.boundingRect()
-        return QRectF(sceneRect.topLeft() - self.mountPoint,
-                      sceneRect.bottomRight() - self.mountPoint)
+        return QRectF(sceneRect.topLeft() - self.pos(),
+                      sceneRect.bottomRight() - self.pos())
 
 
     def properties(self):
@@ -386,11 +407,32 @@ class GraphicItemGroup(GraphicItem):
         if not len(properties['graphicsObjects']):
             return
 
+        newItems = []
         for itemProperties in properties['graphicsObjects']:
+            found = False
             for item in self.graphicsItemsList:
                 if item.id() == itemProperties['id']:
                     item.setProperties(itemProperties)
+                    found = True
                     break
+            if not found:
+                itemMountPoint = QPointF(itemProperties['mountPoint']['x'],
+                                         itemProperties['mountPoint']['y'])
+                itemMountPoint += self.pos()
+                itemProperties['mountPoint']['x'] = itemMountPoint.x()
+                itemProperties['mountPoint']['y'] = itemMountPoint.y()
+
+                if itemProperties['type'] == LINE_TYPE:
+                    item = GraphicItemLine()
+                    item.setProperties(itemProperties)
+                    newItems.append(item)
+
+                if itemProperties['type'] == GROUP_TYPE:
+                    item = GraphicItemGroup()
+                    item.setProperties(itemProperties)
+                    newItems.append(item)
+
+        self.addItems(newItems)
 
 
     def compareProperties(self, properties):
@@ -407,7 +449,7 @@ class GraphicItemGroup(GraphicItem):
             print("%d group not matched count subitems" % self.id())
             return False
 
-        for itemProperties in selfProperties['graphicsObjects']:
+        for itemProperties in properties['graphicsObjects']:
             for item in self.graphicsItemsList:
                 if item.id() != itemProperties['id']:
                     continue
@@ -423,7 +465,7 @@ class GraphicItemGroup(GraphicItem):
     def rotate(self, center, angle):
         for item in self.items():
             item.rotate(center, angle)
-        self.calculateMountPoint()
+#        self.calculateMountPoint()
 
 
     def __str__(self):
@@ -445,6 +487,7 @@ class GraphicItemGroup(GraphicItem):
 
     def removeFromQScene(self):
         self.resetSelection()
+        print("removeFromQScene %d" % self.id())
 
         for item in self.items():
             item.setParent(None)
@@ -459,7 +502,6 @@ class GraphicItemLine(GraphicItem, QGraphicsLineItem):
         GraphicItem.__init__(self)
         self.markP1 = None
         self.markP2 = None
-        self.mouseMoveDelta = None
         self.selectedPoint = None
         self.graphicsItemsList.append(self)
         self.setZValue(1)
@@ -575,7 +617,6 @@ class GraphicItemLine(GraphicItem, QGraphicsLineItem):
         p2 = t.map(self.p2())
         self.setP1(p1)
         self.setP2(p2)
-        self.markPointsShow()
 
 
     def copy(self):
@@ -601,12 +642,6 @@ class GraphicItemLine(GraphicItem, QGraphicsLineItem):
         line = QLineF(QPointF(properties['p1']['x'], properties['p1']['y']),
                       QPointF(properties['p2']['x'], properties['p2']['y']))
         self.setLine(line)
-
-
-    def moveByCenter(self, point):
-        self.setPos(QPointF(point + self.deltaCenter))
-        if self.isSelected():
-            self.markPointsShow()
 
 
     def __str__(self):
