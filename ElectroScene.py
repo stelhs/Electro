@@ -24,7 +24,9 @@ class ElectroScene(QGraphicsScene):
         self.keyCTRL = False
         self.mousePos = QPointF(0, 0)
         self.drawLinesHistory = []  # temporary array of drawed lines between mouse left and right clicks
-
+        self.minGridSize = 5
+        self.maxGridSize = self.minGridSize * 4
+        self.gridSize = self.minGridSize
         self.history = History(self)
 
         self.cursorX = QGraphicsLineItem(None, self)
@@ -32,12 +34,161 @@ class ElectroScene(QGraphicsScene):
         self.cursorX.setPen(QPen(Qt.blue, 1, Qt.SolidLine))
         self.cursorY.setPen(QPen(Qt.blue, 1, Qt.SolidLine))
 
+        self.interceptionPoints = []
 
-    def mapToSnap(self, point):
-        s = self.editor.matrixStep
+        self.horizontalFieldsCount = 20
+        self.verticalFieldsCount = 10
+
+        self.horizontalFieldsHeight = 4  # in minGridSize
+        self.verticalFieldsWidth = 4  # in minGridSize
+
+        self.sceneRectSize = QPointF(400, 200)  # in minGridSize
+
+        self.setGrid(self.maxGridSize)
+
+
+        # configure graphic paper
+        def pix(val):
+            return val * self.minGridSize
+
+
+        self.setSceneRect(-pix(self.horizontalFieldsHeight + 1),
+                          - pix(self.verticalFieldsWidth + 1),
+                          pix(self.sceneRectSize.x()),
+                          pix(self.sceneRectSize.y()))
+        self.bottomRight = QPointF(pix(self.sceneRectSize.x()),
+                                   pix(self.sceneRectSize.y()))
+
+
+    def setGrid(self, gridSize):
+        self.gridSize = gridSize
+        self.editor.setGridSize(gridSize)
+        self.update()
+
+
+    def changeGridSize(self):
+        gridSize = self.gridSize
+        gridSize /= 2
+        if gridSize < self.minGridSize:
+            gridSize = self.maxGridSize
+        self.setGrid(gridSize)
+
+
+    def drawBackground(self, qp, viewRect):
+#        print("drawBackground scene")
+
+        letters = ['A', 'B', 'C', 'D',
+                   'E', 'F', 'G', 'H',
+                   'I', 'J', 'K', 'L']
+
+
+        def pix(val):
+            return val * self.minGridSize
+
+
+        # draw grid in viewRect
+        p = self.mapToGrid(viewRect.topLeft())
+        startX = p.x() - self.gridSize
+        startY = p.y() - self.gridSize
+        if startX < 0:
+            startX = 0
+        if startY < 0:
+            startY = 0
+
+        viewWidth = startX + viewRect.width() + self.gridSize
+        viewHeight = startY + viewRect.height() + self.gridSize
+        if viewWidth > pix(self.sceneRectSize.x()):
+            viewWidth = pix(self.sceneRectSize.x())
+        if viewHeight > pix(self.sceneRectSize.y()):
+            viewHeight = pix(self.sceneRectSize.y())
+
+        qp.setPen(QPen(QColor(230, 230, 230), 1))
+
+        x_step = self.gridSize
+        y_step = self.gridSize
+        x_cnt = int(viewWidth / x_step)
+        y_cnt = int(viewHeight / y_step)
+
+        for i in range(x_cnt - 1):
+            qp.drawLine(startX + (i + 1) * x_step, startY + 1,
+                        startX + (i + 1) * x_step, startY + viewHeight - 1);
+
+        for i in range(y_cnt - 1):
+            qp.drawLine(startX + 1, startY + (i + 1) * y_step,
+                        startX + viewWidth - 1, startY + (i + 1) * y_step);
+
+        if self.gridSize != self.maxGridSize:
+            # draw Max grid
+            p = self.mapToGrid(QPointF(startX - self.maxGridSize, startY - self.maxGridSize),
+                           self.maxGridSize)
+            startX = p.x()
+            startY = p.y()
+            x_step = self.maxGridSize
+            y_step = self.maxGridSize
+            x_cnt = int(viewWidth / x_step)
+            y_cnt = int(viewHeight / y_step)
+            qp.setPen(QPen(Qt.black, 1))
+            for x in range(x_cnt - 1):
+                for y in range(y_cnt - 1):
+                    qp.drawPoint(startX + (x + 1) * x_step,
+                                 startY + (y + 1) * y_step)
+
+        # draw graphics region in all scene
+        horizontalFieldSize = self.sceneRectSize.x() / self.horizontalFieldsCount
+        verticalFieldSize = self.sceneRectSize.y() / self.verticalFieldsCount
+
+        startX = -pix(self.horizontalFieldsHeight)
+        startY = -pix(self.verticalFieldsWidth)
+
+        qp.setPen(QPen(Qt.black, 1))
+        qp.setFont(QFont("System", 10, QFont.Normal))
+
+        qp.drawRect(startX, startY,
+                    pix(self.horizontalFieldsHeight) + pix(self.sceneRectSize.x()),
+                    pix(self.verticalFieldsWidth) + pix(self.sceneRectSize.y()))
+
+        qp.setBrush(Qt.white)
+
+        # draw top horizontal bar
+        sx = startX + pix(self.verticalFieldsWidth)
+        sy = startY
+
+        for i in range(self.horizontalFieldsCount):
+            rect = QRectF(sx + i * pix(horizontalFieldSize),
+                          sy,
+                          pix(horizontalFieldSize),
+                          pix(self.horizontalFieldsHeight))
+            qp.drawRect(rect)
+            qp.drawText(rect, Qt.AlignCenter, "%d" % (i + 1))
+
+        # draw top vertical bar
+        sx = startX
+        sy = startY + pix(self.verticalFieldsWidth)
+
+        for i in range(self.verticalFieldsCount):
+            rect = QRectF(sx,
+                          sy + i * pix(verticalFieldSize),
+                          pix(self.verticalFieldsWidth),
+                          pix(verticalFieldSize))
+            qp.drawRect(rect)
+            qp.drawText(rect, Qt.AlignCenter, "%s" % letters[i])
+
+
+    def mapToGrid(self, point, gridSize=None):
+        if not gridSize:
+            gridSize = self.gridSize
+        s = gridSize
         x = round(point.x() / s) * s
         y = round(point.y() / s) * s
         return QPointF(x, y)
+
+
+    def inGraphicPaper(self, point):
+        if point.x() < 0 or point.y() < 0:
+            return False
+        if point.x() > self.bottomRight.x() or point.y() > self.bottomRight.y():
+            return False
+        return True
 
 
     def drawCursor(self, point):
@@ -148,6 +299,9 @@ class ElectroScene(QGraphicsScene):
 
 
     def mousePressEvent(self, ev):
+        if not self.inGraphicPaper(ev.scenePos()):
+            return
+
         if ev.button() == 1:
             if self.mode == 'select':
                 if self.mousePressEventMovePoint(ev):
@@ -164,7 +318,7 @@ class ElectroScene(QGraphicsScene):
                 if self.drawingLine:
                     self.drawLinesHistory.append(self.drawingLine)
 
-                p = self.mapToSnap(ev.scenePos())
+                p = self.mapToGrid(ev.scenePos())
                 self.drawingLine = GraphicItemLine()
                 self.drawingLine.setP1(p)
                 self.addGraphicsItem(self.drawingLine)
@@ -228,7 +382,7 @@ class ElectroScene(QGraphicsScene):
         if not len(self.graphicsItems()):
             return False
 
-        point = self.mapToSnap(ev.scenePos())
+        point = self.mapToGrid(ev.scenePos())
         for item in self.graphicsItems():
             if item.setSelectPoint(point):
                 self.movedPointItems.append(item)
@@ -244,7 +398,7 @@ class ElectroScene(QGraphicsScene):
         if not len(self.movedPointItems):
             return False
 
-        p = self.mapToSnap(ev.scenePos())
+        p = self.mapToGrid(ev.scenePos())
         for item in self.graphicsItems():
             if item.isPointSelected():
                 item.modifySelectedPoint(p)
@@ -257,7 +411,7 @@ class ElectroScene(QGraphicsScene):
         if not item:
             return
 
-        self.selectedCenter = self.mapToSnap(ev.scenePos())
+        self.selectedCenter = self.mapToGrid(ev.scenePos())
         for item in self.selectedGraphicsItems():
             item.setCenter(self.selectedCenter)
         self.movingItem = True
@@ -272,7 +426,7 @@ class ElectroScene(QGraphicsScene):
             return
 
         for item in items:
-            item.moveByCenter(self.mapToSnap(ev.scenePos()))
+            item.moveByCenter(self.mapToGrid(ev.scenePos()))
         return
 
 
@@ -294,7 +448,14 @@ class ElectroScene(QGraphicsScene):
 
 
     def mouseMoveEvent(self, ev):
+        if not self.inGraphicPaper(ev.scenePos()):
+            return
+
         self.mousePos = ev.scenePos()
+
+        p = self.mapToGrid(ev.scenePos())
+        self.editor.setCursorCoordinates(p)
+
         if self.mode == 'select':
             self.mouseMoveEventDisplayPoints(ev)
 
@@ -309,9 +470,7 @@ class ElectroScene(QGraphicsScene):
             return
 
         if self.mode == 'drawLine':
-            p = self.mapToSnap(ev.scenePos())
             self.drawCursor(p)
-            self.editor.setCursorCoordinates(p)
 
             if not self.drawingLine:
                 return
@@ -320,11 +479,11 @@ class ElectroScene(QGraphicsScene):
             return
 
         if self.mode == 'pasteFromClipboard':
-            self.moveSelectedItems(self.mapToSnap(ev.scenePos()))
+            self.moveSelectedItems(self.mapToGrid(ev.scenePos()))
             return
 
         if self.mode == 'moveSelectedItems':
-            self.moveSelectedItems(self.mapToSnap(ev.scenePos()))
+            self.moveSelectedItems(self.mapToGrid(ev.scenePos()))
             return
 
 
@@ -380,9 +539,16 @@ class ElectroScene(QGraphicsScene):
             self.keyCTRL = True
             return
 
-        if key == 83:  # S
+        if key == 87:  # W
             print(self.history)
             print(self)
+            return
+
+        if key == 83:  # S
+            self.changeGridSize()
+
+        if key == 68:  # D
+            self.intersectionPointsShow()
             return
 
         if key == 16777219:  # Backspace
@@ -447,37 +613,45 @@ class ElectroScene(QGraphicsScene):
             items = self.selectedGraphicsItems()
             self.history.changeItemsStart(items)
             for item in items:
-                item.moveByCenter(self.mapToSnap(self.mousePos))
+                item.moveByCenter(self.mapToGrid(self.mousePos))
 
             self.setMode("moveSelectedItems")
             return
 
         if key == 16777235:  # UP
-            p = self.selectedCenter
-            p.setY(p.y() - self.editor.matrixStep)
-            self.moveSelectedItemsByKeys(p)
+            if not len(self.graphicsItems()):
+                return
             self.calculateSelectionCenter()
+            p = self.selectedCenter
+            p.setY(p.y() - self.gridSize)
+            self.moveSelectedItemsByKeys(p)
             return
 
         if key == 16777237:  # DOWN
-            p = self.selectedCenter
-            p.setY(p.y() + self.editor.matrixStep)
-            self.moveSelectedItemsByKeys(p)
+            if not len(self.graphicsItems()):
+                return
             self.calculateSelectionCenter()
+            p = self.selectedCenter
+            p.setY(p.y() + self.gridSize)
+            self.moveSelectedItemsByKeys(p)
             return
 
         if key == 16777234:  # LEFT
-            p = self.selectedCenter
-            p.setX(p.x() - self.editor.matrixStep)
-            self.moveSelectedItemsByKeys(p)
+            if not len(self.graphicsItems()):
+                return
             self.calculateSelectionCenter()
+            p = self.selectedCenter
+            p.setX(p.x() - self.gridSize)
+            self.moveSelectedItemsByKeys(p)
             return
 
         if key == 16777236:  # RIGHT
-            p = self.selectedCenter
-            p.setX(p.x() + self.editor.matrixStep)
-            self.moveSelectedItemsByKeys(p)
+            if not len(self.graphicsItems()):
+                return
             self.calculateSelectionCenter()
+            p = self.selectedCenter
+            p.setX(p.x() + self.gridSize)
+            self.moveSelectedItemsByKeys(p)
             return
 
         QGraphicsScene.keyPressEvent(self, event)
@@ -494,7 +668,7 @@ class ElectroScene(QGraphicsScene):
             self.keyCTRL = False
             return
 
-        QGraphicsScene.keyPressEvent(self, event)
+        QGraphicsScene.keyReleaseEvent(self, event)
 
 
     def moveSelectedItemsByKeys(self, point):
@@ -543,7 +717,7 @@ class ElectroScene(QGraphicsScene):
             self.stopLineDrawing()
 
         if mode == "drawLine":
-            self.drawCursor(self.mapToSnap(self.mousePos))
+            self.drawCursor(self.mapToGrid(self.mousePos))
 
         self.mode = mode
 
@@ -556,7 +730,7 @@ class ElectroScene(QGraphicsScene):
             return
 
         rect = poligon.boundingRect()
-        self.selectedCenter = self.mapToSnap(rect.center())
+        self.selectedCenter = self.mapToGrid(rect.center())
 
 
     def itemAddToSelection(self, item):
@@ -605,7 +779,7 @@ class ElectroScene(QGraphicsScene):
             self.itemAddToSelection(item)
 
         for item in items:
-            item.moveByCenter(self.mapToSnap(self.mousePos))
+            item.moveByCenter(self.mapToGrid(self.mousePos))
 
         self.setMode("pasteFromClipboard")
         return True
@@ -631,6 +805,17 @@ class ElectroScene(QGraphicsScene):
 
     def graphicsItems(self):
         return self.graphicsItemsList
+
+
+    def graphicsUnpackedItems(self):
+        list = []
+        for item in self.items():
+            if item.type() <= NOT_DEFINED_TYPE:
+                continue
+            if item.type() == GROUP_TYPE:
+                continue
+            list.append(item)
+        return list
 
 
     def addGraphicsItem(self, item):
@@ -696,6 +881,58 @@ class ElectroScene(QGraphicsScene):
     def removeGraphicsItems(self, items):
         for item in items:
             self.removeGraphicsItem(item)
+
+
+    def intersectionPointsShow(self):
+        if self.interceptionPoints:
+            for point in self.interceptionPoints:
+                self.removeItem(point)
+
+        items = self.graphicsUnpackedItems()
+        if not len(items):
+            return
+
+        listPoints = {}
+        for item in items:
+            points = item.points()
+            for itemP in points:
+                pointStr = "%dx%d" % (itemP.x(), itemP.y())
+                if pointStr in listPoints:
+                    listPoints[pointStr]['cnt'] += 1
+                else:
+                    listPoints[pointStr] = {'cnt': 1, 'point': itemP, 'item': item}
+
+        showPoints = []
+        for point, data in listPoints.items():
+            if data['cnt'] > 2:
+                showPoints.append(data['point'])
+                continue
+
+            for item in self.graphicsUnpackedItems():
+                if item == data['item']:
+                    continue
+
+                localPos = data['point'] - item.pos()
+                if not item.contains(localPos):
+                    continue
+
+                busy = False
+                for p in item.points():
+                    if p == data['point']:
+                        busy = True
+
+                if busy:
+                    continue
+
+                showPoints.append(data['point'])
+
+        for point in showPoints:
+            pointEllipse = QGraphicsEllipseItem()
+            pointEllipse.setBrush(Qt.black)
+            pointEllipse.setPos(point - QPointF(4, 4))
+            pointEllipse.setRect(QRectF(0, 0, 8, 8))
+            self.addItem(pointEllipse)
+            self.interceptionPoints.append(pointEllipse)
 
 
     def __str__(self):

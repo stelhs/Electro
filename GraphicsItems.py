@@ -325,7 +325,7 @@ class GraphicItemGroup(GraphicItem):
             parentMountPoint = self.parent().pos()
 
         ItemsBoundingRect = poligon.boundingRect()
-        self.mountPoint = self._scene.mapToSnap(ItemsBoundingRect.topLeft() -
+        self.mountPoint = self._scene.mapToGrid(ItemsBoundingRect.topLeft() -
                                                 parentMountPoint)
 
 
@@ -590,6 +590,10 @@ class GraphicItemLine(GraphicItem, QGraphicsLineItem):
         self.setLine(line)
         if self.isSelected():
             self.markPointsShow()
+
+
+    def points(self):
+        return [self.p1(), self.p2()]
 
 
     def setSelectPoint(self, point):

@@ -11,22 +11,13 @@ class ElectroSceneView(QGraphicsView):
         QGraphicsView.__init__(self, scene)
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
         self.zoomFactor = 1.25
-        self.setAlignment(Qt.AlignTop | Qt.AlignLeft);
-        self.setFocusPolicy(Qt.NoFocus)
-
-
-    def drawBackground(self, qp, rect):
-        x_step = self.editor.matrixStep
-        y_step = self.editor.matrixStep
-        x_cnt = int(self.scene().width() / x_step)
-        y_cnt = int(self.scene().height() / y_step)
-
-        qp.setPen(QPen(QColor(220, 220, 220), 1))
-        for i in range(x_cnt):
-            qp.drawLine(i * x_step, 0, i * x_step, self.scene().height());
-
-        for i in range(y_cnt):
-            qp.drawLine(0, i * y_step, self.scene().width(), i * y_step);
+        self.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        # self.horizontalScrollBar().setValue(scene.sceneRect().left())
+        # self.verticalScrollBar().setValue(scene.sceneRect().top())
+        self.setMouseTracking(True)
+        self.scalePercent = 100
+        self.editor.setScale(self.scalePercent)
+        # self.setFocusPolicy(Qt.NoFocus)
 
 
     def zoomIn(self, zoomPos):
@@ -41,6 +32,8 @@ class ElectroSceneView(QGraphicsView):
         movedPos = self.mapFromScene(scenePos)
         newMousePos = mousePos + (movedPos - zoomPos)
         c.setPos(newMousePos)
+        self.scalePercent *= self.zoomFactor
+        self.editor.setScale(self.scalePercent)
 
 
     def zoomOut(self, zoomPos):
@@ -55,6 +48,8 @@ class ElectroSceneView(QGraphicsView):
         movedPos = self.mapFromScene(scenePos)
         newMousePos = mousePos + (movedPos - zoomPos)
         c.setPos(newMousePos)
+        self.scalePercent /= self.zoomFactor
+        self.editor.setScale(self.scalePercent)
 
 
     def zoomReset(self, zoomPos):
@@ -68,6 +63,8 @@ class ElectroSceneView(QGraphicsView):
         movedPos = self.mapFromScene(scenePos)
         newMousePos = mousePos + (movedPos - zoomPos)
         c.setPos(newMousePos)
+        self.scalePercent = 100
+        self.editor.setScale(self.scalePercent)
 
 
     def wheelEvent(self, event):
@@ -83,7 +80,7 @@ class ElectroSceneView(QGraphicsView):
             self.setDragMode(QGraphicsView.ScrollHandDrag)
             return
 
-        QGraphicsView.keyPressEvent(self, event)
+        self.editor.keyPressEvent(event)
 
 
     def keyReleaseEvent(self, event):
@@ -92,5 +89,5 @@ class ElectroSceneView(QGraphicsView):
             self.setDragMode(QGraphicsView.NoDrag)
             return
 
-        QGraphicsView.keyPressEvent(self, event)
+        self.editor.keyReleaseEvent(event)
 

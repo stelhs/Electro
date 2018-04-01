@@ -7,8 +7,8 @@ from ElectroEditor import *
 readline.parse_and_bind('tab:complete')
 
 app = QApplication(sys.argv)
+
 electro = ElectroEditor(app)
-scene = electro.scene
 electro.show()
 # view.setDragMode(QGraphicsView.RubberBandDrag)
 
