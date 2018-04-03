@@ -1,4 +1,4 @@
-from GraphicsItems import *
+from GraphicsItem import *
 from pprint import *
 
 

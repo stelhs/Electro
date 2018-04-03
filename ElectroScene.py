@@ -1,10 +1,13 @@
 from PyQt4.QtGui import *
 from PyQt4.QtCore import *
 from ElectroEditor import *
-from GraphicsItems import *
 from History import *
 from gtk.keysyms import ordfeminine
 import json
+from GraphicsItem import *
+from GraphicsItemLine import *
+from GraphicsItemRect import *
+from GraphicsItemGroup import *
 
 
 
@@ -260,7 +263,7 @@ class ElectroScene(QGraphicsScene):
             if self.drawingLine:
                 self.drawLinesHistory.append(self.drawingLine)
 
-            self.drawingLine = GraphicItemLine(lineType)
+            self.drawingLine = GraphicsItemLine(lineType)
             self.drawingLine.setP1(p)
             self.addGraphicsItem(self.drawingLine)
             QGraphicsScene.mousePressEvent(self, ev)
@@ -324,7 +327,11 @@ class ElectroScene(QGraphicsScene):
                         self.stopLineDrawing()
                     else:
                         self.editor.setTool(None)
-                return
+                    return
+
+                if self.currentTool() == 'rectangle':
+                    self.editor.setTool(None)
+                    return
 
             if self.mode == 'pasteFromClipboard':
                 self.setMode('select')
@@ -481,8 +488,9 @@ class ElectroScene(QGraphicsScene):
             if self.drawingRect:
                 rect = self.drawingRect.rect()
                 if not rect:
+                    self.drawingRect = None
                     return
-                rectangle = GraphicItemRect(self.drawingRect.rect())
+                rectangle = GraphicsItemRect(self.drawingRect.rect())
                 self.drawingRect.remove()
                 self.addGraphicsItem(rectangle)
                 self.history.addItems([rectangle])
@@ -891,7 +899,7 @@ class ElectroScene(QGraphicsScene):
     def packItemsIntoGroup(self, items, name="undefined"):
         if len(items) < 2:
             return None
-        group = GraphicItemGroup()
+        group = GraphicsItemGroup()
         group.setName(name)
         self.resetSelectionItems()
         self.removeGraphicsItems(items)
