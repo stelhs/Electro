@@ -66,6 +66,10 @@ def createGraphicsObjectByProperties(ogjectProperties):
         item = GraphicItemLine()
         item.setProperties(ogjectProperties)
 
+    if typeByName(ogjectProperties['type']) == RECT_TYPE:
+        item = GraphicItemRect()
+        item.setProperties(ogjectProperties)
+
     return item
 
 
@@ -81,14 +85,13 @@ def createGraphicsObjectsByProperties(properties):
 
 class GraphicItem():
     MARK_SIZE = 14
-
+    normalPen = QPen(QColor(0, 0, 200), 2, Qt.SolidLine, Qt.RoundCap)
+    selectedPen = QPen(Qt.magenta, 3, Qt.SolidLine, Qt.RoundCap)
+    highLightPen = QPen(Qt.blue, 4, Qt.SolidLine, Qt.RoundCap)
 
     def __init__(self):
         self.selected = False
         self.copyOf = None
-        self.normalPen = QPen(Qt.black, 2, Qt.SolidLine, Qt.RoundCap)
-        self.selectedPen = QPen(Qt.magenta, 3, Qt.SolidLine, Qt.RoundCap)
-        self.highLightPen = QPen(Qt.blue, 4, Qt.SolidLine, Qt.RoundCap)
         self.deltaCenter = None
         self.graphicsItemsList = []
         self._name = ""
@@ -225,22 +228,16 @@ class GraphicItem():
     def properties(self):
         properties = {}
         properties['id'] = self.id()
+        properties['type'] = self.typeName()
         properties['name'] = self.name()
-        properties['color'] = {"red" : self.color().red(),
-                               "green" : self.color().green(),
-                               "blue" : self.color().blue()}
         properties['mountPoint'] = {'x': self.posFromParent().x(),
                                     'y': self.posFromParent().y()}
-        properties['thickness'] = self.thickness()
         return properties;
 
 
     def setProperties(self, properties):
         properties = copy.deepcopy(properties)
         self.resetSelection()
-        self.setColor(QColor(properties['color']['red'],
-                             properties['color']['green'],
-                             properties['color']['blue']))
 
         newMountPoint = QPointF(properties['mountPoint']['x'],
                                 properties['mountPoint']['y'])
@@ -248,7 +245,6 @@ class GraphicItem():
             newMountPoint += self.parent().pos()
         self.setPos(newMountPoint)
 
-        self.setThickness(properties['thickness'])
         self.setName(properties['name'])
 
 
@@ -274,10 +270,10 @@ class GraphicItem():
 
 
     def __str__(self):
-        str = "%d: (%d:%d) Graphic type: %s" % (self.id(),
+        str = "%d: (%d:%d) Graphic type:%s" % (self.id(),
                                                 self.pos().x(),
                                                 self.pos().y(),
-                                                self.type())
+                                                self.typeName())
 
         if self.parent():
             str += ", parent: %d" % self.parent().id()
@@ -476,6 +472,11 @@ class GraphicItemGroup(GraphicItem):
                     item.setProperties(itemProperties)
                     newItems.append(item)
 
+                if typeByName(itemProperties['type']) == RECT_TYPE:
+                    item = GraphicItemRect()
+                    item.setProperties(itemProperties)
+                    newItems.append(item)
+
                 if typeByName(itemProperties['type']) == GROUP_TYPE:
                     item = GraphicItemGroup()
                     item.setProperties(itemProperties)
@@ -545,24 +546,42 @@ class GraphicItemGroup(GraphicItem):
 class GraphicItemLine(GraphicItem, QGraphicsLineItem):
 
 
-    def __init__(self):
+    def __init__(self, type='line'):
         QGraphicsLineItem.__init__(self)
         GraphicItem.__init__(self)
+        self._typeLine = type
         self.markP1 = None
         self.markP2 = None
         self.selectedPoint = None
         self.graphicsItemsList.append(self)
         self.setZValue(1)
         self.resetSelection()
+        self.linePen = GraphicItem.normalPen
+        self.tracePen = QPen(Qt.black, 2, Qt.SolidLine, Qt.RoundCap)
+        self.normalPen = self.linePen
+
+        self.setTypeLine(self._typeLine)
 
 
     def type(self):
         return LINE_TYPE
 
 
+    def setTypeLine(self, type):
+        self._typeLine = type
+        self.normalPen = self.linePen
+        if type == 'trace':
+            self.normalPen = self.tracePen
+        self.setPen(self.normalPen)
+
+
+    def typeLine(self):
+        return self._typeLine
+
+
     def markPointsShow(self):
         self.markPointsHide()
-        if self.group():
+        if self.parent():
             return
 
         self.markP1 = QGraphicsRectItem(None, self.scene())
@@ -681,7 +700,7 @@ class GraphicItemLine(GraphicItem, QGraphicsLineItem):
 
     def properties(self):
         properties = GraphicItem.properties(self)
-        properties['type'] = self.typeName()
+        properties['typeLine'] = self.typeLine()
         properties['p1'] = {"x" : self.line().p1().x(), "y": self.line().p1().y()}
         properties['p2'] = {"x" : self.line().p2().x(), "y": self.line().p2().y()}
         return properties
@@ -691,6 +710,8 @@ class GraphicItemLine(GraphicItem, QGraphicsLineItem):
         properties = copy.deepcopy(properties)
         if typeByName(properties['type']) != LINE_TYPE:
             return
+
+        self.setTypeLine(properties['typeLine'])
         GraphicItem.setProperties(self, properties)
         line = QLineF(QPointF(properties['p1']['x'], properties['p1']['y']),
                       QPointF(properties['p2']['x'], properties['p2']['y']))
@@ -709,14 +730,212 @@ class GraphicItemLine(GraphicItem, QGraphicsLineItem):
         return str
 
 
+
+
 class GraphicItemRect(GraphicItem, QGraphicsRectItem):
-
-
-    def __init__(self):
+    def __init__(self, rect=None):
         QGraphicsRectItem.__init__(self)
         GraphicItem.__init__(self)
+        if rect:
+            self.setPos(rect.topLeft())
+            self.setRect(QRectF(0, 0, rect.width(), rect.height()))
+        self.setZValue(1)
+        self.setPen(self.normalPen)
+        self.graphicsItemsList.append(self)
+        self.markPoints = []
+        self.selectedPoint = None
 
 
     def type(self):
         return RECT_TYPE
+
+
+    def markPointsShow(self):
+        self.markPointsHide()
+        if self.parent():
+            return
+
+        for point in self.points():
+            markPoint = QGraphicsRectItem(None, self.scene())
+            markPoint.setZValue(0)
+            markPoint.setPen(QPen(Qt.black, 1, Qt.SolidLine))
+            x1 = point.x() - self.MARK_SIZE / 2
+            y1 = point.y() - self.MARK_SIZE / 2
+            markPoint.setRect(x1, y1, self.MARK_SIZE, self.MARK_SIZE)
+            self.markPoints.append(markPoint)
+
+
+    def markPointsHide(self):
+        for markPoint in self.markPoints:
+            self.scene().removeItem(markPoint)
+        self.markPoints = []
+
+
+    def posFromParent(self):
+        if not self.parent():
+            return QGraphicsRectItem.pos(self)
+        return QGraphicsRectItem.pos(self) - self.parent().pos()
+
+
+    def points(self):
+        points = []
+        points.append(self.topLeft())
+        points.append(self.topRight())
+        points.append(self.bottomLeft())
+        points.append(self.bottomRight())
+        return points
+
+
+    def topLeft(self):
+        rect = self.rect()
+        return self.pos() + rect.topLeft()
+
+
+    def topRight(self):
+        rect = self.rect()
+        return self.pos() + rect.topRight()
+
+
+    def bottomLeft(self):
+        rect = self.rect()
+        return self.pos() + rect.bottomLeft()
+
+
+    def bottomRight(self):
+        rect = self.rect()
+        return self.pos() + rect.bottomRight()
+
+
+    def width(self):
+        return self.rect().width()
+
+
+    def height(self):
+        return self.rect().height()
+
+
+    def setSelectPoint(self, selPoint):
+        if selPoint == self.pos():
+            self.selectedPoint = 'pos'
+            print("setSelectPoint pos")
+        elif selPoint == self.topRight():
+            self.selectedPoint = 'topRight'
+            print("setSelectPoint topRight")
+        elif selPoint == self.bottomLeft():
+            self.selectedPoint = 'bottomLeft'
+            print("setSelectPoint bottomLeft")
+        elif selPoint == self.bottomRight():
+            self.selectedPoint = 'bottomRight'
+            print("setSelectPoint bottomRight")
+
+        if self.selectedPoint:
+            return True
+        return False
+
+
+    def resetSelectionPoint(self):
+        print("resetSelectionPoint")
+        self.markPointsHide()
+        self.selectedPoint = None
+
+
+    def isPointSelected(self):
+        if self.selectedPoint:
+            return True
+        return False
+
+
+    def modifySelectedPoint(self, new_point):
+        if self.selectedPoint == 'pos':
+            delta = self.pos() - new_point
+            self.setPos(new_point)
+            self.setRect(QRectF(0, 0,
+                                self.width() + delta.x(),
+                                self.height() + delta.y()))
+
+            if not self.width() or not self.height():
+                self.scene().removeGraphicsItem(self)
+            return True
+
+        if self.selectedPoint == 'topRight':
+            delta = self.topRight() - new_point
+            self.setPos(QPointF(self.pos().x(),
+                                self.pos().y() - delta.y()))
+            self.setRect(QRectF(0, 0,
+                                self.width() - delta.x(),
+                                self.height() + delta.y()))
+
+            if not self.width() or not self.height():
+                self.scene().removeGraphicsItem(self)
+            return True
+
+        if self.selectedPoint == 'bottomLeft':
+            delta = self.bottomLeft() - new_point
+            self.setPos(QPointF(self.pos().x() - delta.x(),
+                                self.pos().y()))
+            self.setRect(QRectF(0, 0,
+                                self.width() + delta.x(),
+                                self.height() - delta.y()))
+
+            if not self.width() or not self.height():
+                self.scene().removeGraphicsItem(self)
+            return True
+
+        if self.selectedPoint == 'bottomRight':
+            delta = new_point - self.pos()
+            self.setRect(QRectF(0, 0,
+                                delta.x(),
+                                delta.y()))
+
+            if not self.width() or not self.height():
+                self.scene().removeGraphicsItem(self)
+            return True
+        return False
+
+
+    def properties(self):
+        properties = GraphicItem.properties(self)
+        properties['rectSize'] = {"w": self.rect().width(),
+                                  "h": self.rect().height()}
+        return properties
+
+
+    def setProperties(self, properties):
+        properties = copy.deepcopy(properties)
+        if typeByName(properties['type']) != RECT_TYPE:
+            return
+
+        GraphicItem.setProperties(self, properties)
+        rect = QRectF(0, 0,
+                      properties['rectSize']['w'],
+                      properties['rectSize']['h'])
+        self.setRect(rect)
+
+
+    def rotate(self, center, angle):
+        t = QTransform()
+        t.translate(center.x(), center.y())
+        t.rotate(angle)
+        t.translate(-center.x(), -center.y())
+        pos = t.map(self.pos())
+        topRight = t.map(self.topRight())
+        bottomLeft = t.map(self.bottomLeft())
+        bottomRight = t.map(self.bottomRight())
+        rect = QPolygonF([pos, topRight, bottomLeft, bottomRight]).boundingRect()
+        self.setPos(rect.topLeft())
+        self.setRect(QRectF(0, 0, rect.width(), rect.height()))
+        self.markPointsShow()
+
+
+    def __str__(self):
+        str = GraphicItem.__str__(self)
+        str += ", size:(%d x %d), z=%d" % (self.width(), self.height(), self.zValue())
+
+        if self.deltaCenter:
+            str += " | deltaCenter %d:%d" % (self.deltaCenter.x(),
+                                             self.deltaCenter.y())
+
+        return str
+
+
 

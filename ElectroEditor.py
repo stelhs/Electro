@@ -1,6 +1,6 @@
 from ElectroScene import *
 from ElectroSceneView import *
-from PyQt4.Qt import QWidget, QMainWindow, QLabel, QPoint
+from PyQt4.Qt import QWidget, QMainWindow, QLabel, QPoint, QTimer
 import os, glob, sys, pprint
 
 
@@ -117,9 +117,8 @@ class Component(QListWidgetItem):
         return self._image
 
 
-    def mousePressEvent(self, ev):
-        print("bla")
-
+    def name(self):
+        return self._name
 
 
 
@@ -140,33 +139,57 @@ class ElectroEditor(QMainWindow):
         self.mainLayout = QVBoxLayout(self)
         self.mainWidwet.setLayout(self.mainLayout)
 
-        self.currentCursorCoordinates = QLabel()
-        self.currentCursorCoordinates.setFrameStyle(Qt.SolidLine)
+        self.currentCursorCoordinatesLabel = QLabel()
+        self.currentCursorCoordinatesLabel.setFrameStyle(Qt.SolidLine)
 
-        self.currentScale = QLabel()
-        self.currentScale.setFrameStyle(Qt.SolidLine)
+        self.currentScaleLabel = QLabel()
+        self.currentScaleLabel.setFrameStyle(Qt.SolidLine)
 
-        self.gridSize = QLabel()
-        self.gridSize.setFrameStyle(Qt.SolidLine)
+        self.gridSizeLabel = QLabel()
+        self.gridSizeLabel.setFrameStyle(Qt.SolidLine)
+
+        self.editorToolLabel = QLabel()
+        self.editorToolLabel.setFrameStyle(Qt.SolidLine)
 
         self.statusBar = QStatusBar()
-        self.statusBar.addPermanentWidget(self.currentCursorCoordinates)
-        self.statusBar.addPermanentWidget(self.currentScale)
-        self.statusBar.addPermanentWidget(self.gridSize)
+        self.statusBar.addPermanentWidget(self.editorToolLabel)
+        self.statusBar.addPermanentWidget(self.currentCursorCoordinatesLabel)
+        self.statusBar.addPermanentWidget(self.currentScaleLabel)
+        self.statusBar.addPermanentWidget(self.gridSizeLabel)
         self.setStatusBar(self.statusBar)
 
-        # create editro tabs and components list
+        # create editor tabs and components list
         self.tabWidget = QTabWidget()
+        def tabChanged(index):
+            page = self.tabWidget.widget(index)
+            self.setEditorTool(page.scene().currentTool())
+
+        # create left panel
+        leftPanel = QWidget()
+        leftPanel.setFixedWidth(150)
+        leftPanellayout = QVBoxLayout(leftPanel)
+
+        # create component list
+        self.tabWidget.currentChanged.connect(tabChanged)
         self.componentListWidget = QListWidget()
-        self.componentListWidget.setFixedWidth(110)
+        leftPanellayout.addWidget(self.componentListWidget)
         def componentCliced(component):
+            self.showComponentInfo(component)
             self.scene().pastComponent(component.group())
             self.sceneView().setFocus(True)
-
         self.componentListWidget.itemClicked.connect(componentCliced)
+
+        # create component properties info
+        self.componentInfoLabel = QLabel()
+        self.componentInfoLabel.setWordWrap(True)
+        self.componentInfoLabel.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self.componentInfoLabel.setFixedHeight(60)
+        leftPanellayout.addWidget(self.componentInfoLabel)
+
+        # create editor space
         editorSpace = QWidget()
         layout = QHBoxLayout(editorSpace)
-        layout.addWidget(self.componentListWidget)
+        layout.addWidget(leftPanel)
         layout.addWidget(self.tabWidget)
 
         # make Line edit dialog
@@ -179,7 +202,8 @@ class ElectroEditor(QMainWindow):
         layout.addWidget(lineEdit)
         self.lineEditDialog.hide()
 
-        # make components list
+
+        self.statusBarMessageTimer = QTimer()
 
         # set CSS style
         f = open("%s/listComponents.css" % editorPath(), "r")
@@ -196,6 +220,7 @@ class ElectroEditor(QMainWindow):
         self.setFocusPolicy(Qt.NoFocus)
         self.tabWidget.installEventFilter(self)
 
+        # make components list
         self.loadComponents()
 
 
@@ -222,6 +247,7 @@ class ElectroEditor(QMainWindow):
         page = PageWidget(self, name)
         self.pages.append(page)
         self.actualizePagesTabs(page)
+        self.setEditorTool(page.scene().currentTool())
 
 
     def actualizePagesTabs(self, currentPage=None):
@@ -372,9 +398,25 @@ class ElectroEditor(QMainWindow):
         lineEdit.returnPressed.disconnect()
 
 
+    def setTool(self, tool):
+        if not tool:
+            self.scene().setMode('select')
+            self.setEditorTool(None)
+            return
+        self.scene().setTool(tool)
+
+
     def mousePressEvent(self, ev):
         self.componentListWidget.clearSelection()
+        self.showComponentInfo()
         QMainWindow.mousePressEvent(self, ev)
+
+        if self.scene().currentTool() == 'useTool':
+            self.scene().abortTool()
+            self.setMode('select')
+            self.editor.setEditorTool(None)
+            return
+
 
 
     def keyPressEvent(self, event):
@@ -384,12 +426,23 @@ class ElectroEditor(QMainWindow):
 
         if key == 16777216:  # ESC
             self.dialogLineEditHide()
-            scene.setMode('select')
+            self.setTool(None)
             return
 
         if key == 49:  # 1
-            scene.setMode('drawLine')
+            self.setTool('traceLine')
             return
+
+
+        if key == 50:  # 2
+            self.setTool('line')
+            return
+
+
+        if key == 51:  # 3
+            self.setTool('rectangle')
+            return
+
 
         if key == 16777249:  # CTRL
             self.keyCTRL = True
@@ -408,10 +461,12 @@ class ElectroEditor(QMainWindow):
                 name = str(self.dialogLineEditLine.text())
                 self.dialogLineEditHide()
                 if not name:
+                    self.showStatusBarErrorMessage("no component name entered")
                     return
 
                 items = scene.selectedGraphicsItems()
                 if not len(items):
+                    self.showStatusBarErrorMessage("no selected items")
                     return
 
                 group = scene.packItemsIntoGroup(items, name)
@@ -422,7 +477,10 @@ class ElectroEditor(QMainWindow):
                     group = item
 
                 self.addComponent(name, group)
+                self.showStatusBarMessage("added component: %s" % name)
+
             if not len(scene.selectedGraphicsItems()):
+                self.showStatusBarErrorMessage("no selected items")
                 return
             self.dialogLineEditShow("Save selected as component. Enter new component name:",
                                     dialogOnReturn)
@@ -434,6 +492,7 @@ class ElectroEditor(QMainWindow):
                 name = str(self.dialogLineEditLine.text())
                 self.dialogLineEditHide()
                 if not name:
+                    self.showStatusBarErrorMessage("no page name entered")
                     return
                 self.addPage(name)
             self.dialogLineEditShow("Enter new page name:", dialogOnReturn)
@@ -447,6 +506,7 @@ class ElectroEditor(QMainWindow):
                 name = str(self.dialogLineEditLine.text())
                 self.dialogLineEditHide()
                 if not name:
+                    self.showStatusBarErrorMessage("no page name entered")
                     return
                 self.renamePage(page, name)
 
@@ -516,19 +576,52 @@ class ElectroEditor(QMainWindow):
         return self.app.clipboard().text()
 
 
+    def setEditorTool(self, tool):
+        if not tool:
+            tool = "not selected"
+        self.editorToolLabel.setText("Tool: %s" % tool)
+
+
     def setCursorCoordinates(self, point):
-        self.currentCursorCoordinates.setText("x: %d, y: %d" % (point.x(), point.y()))
+        self.currentCursorCoordinatesLabel.setText("x: %d, y: %d" % (point.x(), point.y()))
 
 
     def setScale(self, scale):
-        self.currentScale.setText("Scale: %d%%" % scale)
+        self.currentScaleLabel.setText("Scale: %d%%" % scale)
 
 
     def setGridSize(self, gridSize):
-        self.gridSize.setText("Grid: %dpx" % gridSize)
+        self.gridSizeLabel.setText("Grid: %dpx" % gridSize)
 
 
     def setTextStatusBar(self, text):
         self.statusBar.setText(text)
 
+
+    def showStatusBarErrorMessage(self, message, time=5):
+        self.statusBar.setStyleSheet("color: Red")
+        self.showStatusBarMessage("Error: " + message, time)
+
+
+    def showStatusBarMessage(self, message, time=5):
+        self.statusBar.showMessage(message)
+        if not time:
+            return
+
+        def messageHide():
+            self.statusBar.showMessage("")
+            self.statusBarMessageTimer.stop()
+            self.statusBar.setStyleSheet("color: Black")
+        self.statusBarMessageTimer.timeout.connect(messageHide)
+        self.statusBarMessageTimer.start(time * 1000)
+
+
+    def showComponentInfo(self, component=None):
+        if not component:
+            self.componentInfoLabel.setText("")
+            return
+        info = "Component\n"
+        info += "name: %s" % component.name()
+
+        self.componentInfoLabel.setText(info)
 

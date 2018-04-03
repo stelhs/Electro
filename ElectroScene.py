@@ -9,6 +9,8 @@ import json
 
 
 
+
+
 class ElectroScene(QGraphicsScene):
 
 
@@ -17,11 +19,13 @@ class ElectroScene(QGraphicsScene):
         self.editor = editor
         self.graphicsItemsList = []
         self.drawingLine = None
+        self.drawingRect = None
         self.multiSelected = False  # Shift key is pressed
         self.selectingByMouse = None  # select rectangular area for selecting items
         self.movingItem = False  # Moving selected items mode
         self.movedPointItems = []  # List of Moving point items
         self.mode = 'select'
+        self._currentTool = None
         self.selectedCenter = QPointF(0, 0)
         self.keyCTRL = False
         self.keyShift = False
@@ -214,69 +218,13 @@ class ElectroScene(QGraphicsScene):
         item = self.graphicItemByCoordinate(ev.scenePos())
         if item:
             return False
-
-        self.selectingByMouse = {}
-        self.selectingByMouse["startSelectRectPoint"] = ev.scenePos()
-        self.selectingByMouse["selectedItems"] = self.selectedGraphicsItems()
-        self.selectingByMouse["selectRect"] = None
+        self.selectingByMouse = MouseSelectionDrawing(self, ev.scenePos())
 
 
     def mouseMoveEventMoveRectSelection(self, ev):
         if not self.selectingByMouse:
             return False
-
-        if self.selectingByMouse["selectRect"]:
-            self.removeItem(self.selectingByMouse["selectRect"])
-            self.selectingByMouse["selectRect"] = None
-
-        x1 = self.selectingByMouse["startSelectRectPoint"].x()
-        y1 = self.selectingByMouse["startSelectRectPoint"].y()
-        x2 = ev.scenePos().x()
-        y2 = ev.scenePos().y()
-
-        topLeft = None
-        bottomRight = None
-        if x1 < x2 and y1 < y2:
-            topLeft = self.selectingByMouse["startSelectRectPoint"]
-            bottomRight = ev.scenePos()
-        elif x1 > x2 and y1 < y2:
-            topLeft = QPointF(x2, y1)
-            bottomRight = QPointF(x1, y2)
-        elif x1 < x2 and y1 > y2:
-            topLeft = QPointF(x1, y2)
-            bottomRight = QPointF(x2, y1)
-        elif x1 > x2 and y1 > y2:
-            topLeft = QPointF(x2, y2)
-            bottomRight = QPointF(x1, y1)
-
-        if topLeft:
-            selectRect = QGraphicsRectItem(None, self)
-            selectRect.setPen(QPen(Qt.black, 1, Qt.DashLine))
-            rect = QRectF(topLeft, bottomRight)
-            selectRect.setRect(rect)
-            self.selectingByMouse["selectRect"] = selectRect
-
-            # unSelect all besides selected early
-            for item in self.graphicsItems():
-                selected = False
-                for selItem in self.selectingByMouse["selectedItems"]:
-                    if item == selItem:
-                        selected = True
-
-                if selected:
-                    continue
-
-                self.itemRemoveFromSelection(item)
-
-            # Select all items in rectangle
-            items = self.items(rect)
-            for item in items:
-                if not self.isGraphicsItem(item) or item == selectRect:
-                    continue
-                item = item.root()
-                self.itemAddToSelection(item, True)
-
-        return True
+        return self.selectingByMouse.setEndPoint(ev.scenePos())
 
 
     def mousePressEventSelectItem(self, ev):
@@ -300,6 +248,31 @@ class ElectroScene(QGraphicsScene):
         return True
 
 
+    def mousePressLeftButtonModeUseTool(self, ev):
+        p = self.mapToGrid(ev.scenePos())
+
+        if (self.currentTool() == 'traceLine' or
+                self.currentTool() == 'line'):
+            lineType = 'line'
+            if self.currentTool() == 'traceLine':
+                lineType = 'trace'
+
+            if self.drawingLine:
+                self.drawLinesHistory.append(self.drawingLine)
+
+            self.drawingLine = GraphicItemLine(lineType)
+            self.drawingLine.setP1(p)
+            self.addGraphicsItem(self.drawingLine)
+            QGraphicsScene.mousePressEvent(self, ev)
+            return
+
+        if self.currentTool() == 'rectangle':
+            self.drawingRect = RectDrawing(self, QPen(Qt.black, 2, Qt.SolidLine), p)
+            return
+
+
+
+
     def mousePressEvent(self, ev):
         if not self.inGraphicPaper(ev.scenePos()):
             return
@@ -316,15 +289,8 @@ class ElectroScene(QGraphicsScene):
                     return
                 return
 
-            if self.mode == 'drawLine':
-                if self.drawingLine:
-                    self.drawLinesHistory.append(self.drawingLine)
-
-                p = self.mapToGrid(ev.scenePos())
-                self.drawingLine = GraphicItemLine()
-                self.drawingLine.setP1(p)
-                self.addGraphicsItem(self.drawingLine)
-                QGraphicsScene.mousePressEvent(self, ev)
+            if self.mode == 'useTool':
+                self.mousePressLeftButtonModeUseTool(ev)
                 return
 
             if self.mode == 'pasteFromClipboard':
@@ -350,11 +316,14 @@ class ElectroScene(QGraphicsScene):
                 self.resetSelectionItems()
                 return
 
-            if self.mode == 'drawLine':
-                if self.drawingLine:
-                    self.stopLineDrawing()
-                else:
-                    self.setMode('select')
+            if self.mode == 'useTool':
+                if (self.currentTool() == 'traceLine' or
+                        self.currentTool() == 'line'):
+
+                    if self.drawingLine:
+                        self.stopLineDrawing()
+                    else:
+                        self.editor.setTool(None)
                 return
 
             if self.mode == 'pasteFromClipboard':
@@ -449,14 +418,30 @@ class ElectroScene(QGraphicsScene):
         item.highlight()
 
 
+    def mouseMoveEventModeUseTool(self, point):
+        self.drawCursor(point)
+        if (self.currentTool() == 'traceLine' or
+                self.currentTool() == 'line'):
+
+            if not self.drawingLine:
+                return
+
+            self.drawingLine.setP2(point)
+
+        if self.currentTool() == 'rectangle':
+            if not self.drawingRect:
+                return
+            self.drawingRect.setEndPoint(point)
+
+
     def mouseMoveEvent(self, ev):
         if not self.inGraphicPaper(ev.scenePos()):
             return
 
         self.mousePos = ev.scenePos()
 
-        p = self.mapToGrid(ev.scenePos())
-        self.editor.setCursorCoordinates(p)
+        point = self.mapToGrid(ev.scenePos())
+        self.editor.setCursorCoordinates(point)
 
         if self.mode == 'select':
             self.mouseMoveEventDisplayPoints(ev)
@@ -471,13 +456,8 @@ class ElectroScene(QGraphicsScene):
             QGraphicsScene.mouseMoveEvent(self, ev)
             return
 
-        if self.mode == 'drawLine':
-            self.drawCursor(p)
-
-            if not self.drawingLine:
-                return
-
-            self.drawingLine.setP2(p)
+        if self.mode == 'useTool':
+            self.mouseMoveEventModeUseTool(point)
             return
 
         if self.mode == 'pasteFromClipboard':
@@ -490,15 +470,31 @@ class ElectroScene(QGraphicsScene):
 
 
     def mouseReleaseEvent(self, ev):
+        self.intersectionPointsShow()
         if self.mode == 'pasteFromClipboard':
             return
 
         if self.mode == 'moveSelectedItems':
             return
 
+        if self.mode == 'useTool':
+            if self.drawingRect:
+                rect = self.drawingRect.rect()
+                if not rect:
+                    return
+                rectangle = GraphicItemRect(self.drawingRect.rect())
+                self.drawingRect.remove()
+                self.addGraphicsItem(rectangle)
+                self.history.addItems([rectangle])
+                self.drawingRect = None
+            return
+
         self.calculateSelectionCenter()
 
-        selectingByMouse = self.selectingByMouse
+        if self.selectingByMouse:
+            self.selectingByMouse.remove()
+            self.selectingByMouse = None
+
 
         if len(self.movedPointItems):
             self.history.changeItemsFinish()
@@ -511,10 +507,6 @@ class ElectroScene(QGraphicsScene):
             self.movingItem = False
 
         self.selectingByMouse = None
-
-        if selectingByMouse and selectingByMouse["selectRect"]:
-            self.removeItem(selectingByMouse["selectRect"])
-            return
 
         QGraphicsScene.mouseReleaseEvent(self, ev)
 
@@ -553,12 +545,19 @@ class ElectroScene(QGraphicsScene):
             self.changeGridSize()
             return
 
-        if key == 68:  # D
-            self.intersectionPointsShow()
+        # change lines type
+        if key == 84:  # T
+            if self.mode == 'useTool':
+                self.changeDrawingLinesType()
+            if self.mode == 'select':
+                self.changeSelectedLinesType()
             return
 
+
         if key == 16777219:  # Backspace
-            if self.mode == 'drawLine':
+            if self.mode == 'useTool' and (
+                self.currentTool() == 'traceLine' or
+                self.currentTool() == 'line'):
                 if not len(self.drawLinesHistory):
                     return
 
@@ -715,6 +714,19 @@ class ElectroScene(QGraphicsScene):
         return None
 
 
+    def setTool(self, tool):
+        self._currentTool = tool
+        self.editor.setEditorTool(tool)
+        if not tool:
+            self.setMode("select")
+            return
+        self.setMode("useTool")
+
+
+    def currentTool(self):
+        return self._currentTool
+
+
     def setMode(self, mode):
         if self.mode == 'pasteFromClipboard':
             self.removeGraphicsItems(self.selectedGraphicsItems())
@@ -725,7 +737,7 @@ class ElectroScene(QGraphicsScene):
             self.resetSelectionItems()
             self.stopLineDrawing()
 
-        if mode == "drawLine":
+        if mode == "useTool":
             self.drawCursor(self.mapToGrid(self.mousePos))
 
         self.mode = mode
@@ -909,6 +921,7 @@ class ElectroScene(QGraphicsScene):
     def removeGraphicsItem(self, item):
         self.graphicsItemsList.remove(item)
         item.removeFromQScene()
+        self.intersectionPointsShow()
 
 
     def removeGraphicsItems(self, items):
@@ -928,32 +941,85 @@ class ElectroScene(QGraphicsScene):
         return image
 
 
+    def changeDrawingLinesType(self):
+        if not self.drawingLine:
+            return
+
+        lines = self.drawLinesHistory
+        lines.append(self.drawingLine)
+
+        if self.currentTool() == 'traceLine':
+            self.setTool('line')
+            lineType = 'line'
+        else:
+            self.setTool('traceLine')
+            lineType = 'trace'
+
+        for line in lines:
+            line.setTypeLine(lineType)
+
+
+    def changeSelectedLinesType(self):
+        items = self.selectedGraphicsItems()
+        self.resetSelectionItems()
+        for item in items:
+            if item.type() != LINE_TYPE:
+                continue
+
+            line = item
+            if line.typeLine() == 'trace':
+                line.setTypeLine('line')
+            else:
+                line.setTypeLine('trace')
+
+
     def intersectionPointsShow(self):
         if self.interceptionPoints:
             for point in self.interceptionPoints:
-                self.removeItem(point)
+                if point.scene():
+                    self.removeItem(point)
 
         items = self.graphicsUnpackedItems()
         if not len(items):
             return
 
+        # accumulate lines tip intersection
         listPoints = {}
         for item in items:
+            if item.type() != LINE_TYPE:
+                continue
+
+            traceLine = False
+            if item.typeLine() == 'trace':
+                traceLine = True
+
             points = item.points()
             for itemP in points:
                 pointStr = "%dx%d" % (itemP.x(), itemP.y())
                 if pointStr in listPoints:
                     listPoints[pointStr]['cnt'] += 1
                 else:
-                    listPoints[pointStr] = {'cnt': 1, 'point': itemP, 'item': item}
+                    listPoints[pointStr] = {'cnt': 1,
+                                            'point': itemP,
+                                            'item': item,
+                                            'tracePoint': False}
+                if traceLine:
+                    listPoints[pointStr]['tracePoint'] = True
 
+        # accumulate line to tip intersection
         showPoints = []
         for point, data in listPoints.items():
-            if data['cnt'] > 2:
+            if data['cnt'] > 2 and data['tracePoint']:
                 showPoints.append(data['point'])
                 continue
 
             for item in self.graphicsUnpackedItems():
+                if item.type() != LINE_TYPE:
+                    continue
+
+                if item.typeLine() != 'trace':
+                    continue
+
                 if item == data['item']:
                     continue
 
@@ -974,8 +1040,8 @@ class ElectroScene(QGraphicsScene):
         for point in showPoints:
             pointEllipse = QGraphicsEllipseItem()
             pointEllipse.setBrush(Qt.black)
-            pointEllipse.setPos(point - QPointF(4, 4))
-            pointEllipse.setRect(QRectF(0, 0, 8, 8))
+            pointEllipse.setPos(point - QPointF(3, 3))
+            pointEllipse.setRect(QRectF(0, 0, 6, 6))
             self.addItem(pointEllipse)
             self.interceptionPoints.append(pointEllipse)
 
@@ -986,4 +1052,99 @@ class ElectroScene(QGraphicsScene):
         for item in self.graphicsItems():
             str += "%s\n" % item
         return str
+
+
+
+
+class RectDrawing():
+    def __init__(self, scene, pen, startPoint):
+        self._startPoint = startPoint
+        self._scene = scene
+        self._pen = pen
+        self._rectGraphics = None
+
+
+    def setEndPoint(self, endPoint):
+        self.remove()
+
+        rect = None
+        x1 = self._startPoint.x()
+        y1 = self._startPoint.y()
+        x2 = endPoint.x()
+        y2 = endPoint.y()
+
+        topLeft = None
+        bottomRight = None
+        if x1 < x2 and y1 < y2:
+            topLeft = self._startPoint
+            bottomRight = endPoint
+        elif x1 > x2 and y1 < y2:
+            topLeft = QPointF(x2, y1)
+            bottomRight = QPointF(x1, y2)
+        elif x1 < x2 and y1 > y2:
+            topLeft = QPointF(x1, y2)
+            bottomRight = QPointF(x2, y1)
+        elif x1 > x2 and y1 > y2:
+            topLeft = QPointF(x2, y2)
+            bottomRight = QPointF(x1, y1)
+
+        if topLeft:
+            self._rectGraphics = QGraphicsRectItem(None, self._scene)
+            self._rectGraphics.setPen(self._pen)
+            rect = QRectF(topLeft, bottomRight)
+            self._rectGraphics.setRect(rect)
+        return rect
+
+
+    def remove(self):
+        if self._rectGraphics and self._rectGraphics.scene():
+            self._scene.removeItem(self._rectGraphics)
+        pass
+
+
+    def rect(self):
+        if not self._rectGraphics:
+            return None
+        rect = self._rectGraphics.rect()
+        if not rect.width() or not rect.height():
+            return None
+        return rect
+
+
+
+
+class MouseSelectionDrawing(RectDrawing):
+    def __init__(self, scene, startPoint):
+        RectDrawing.__init__(self, scene, QPen(Qt.black, 1, Qt.DashLine), startPoint)
+        self._selectedItems = scene.selectedGraphicsItems()
+
+
+    def setEndPoint(self, endPoint):
+        rect = RectDrawing.setEndPoint(self, endPoint)
+        if not rect:
+            return False
+
+        # unSelect all besides selected early
+        for item in self._scene.graphicsItems():
+            selected = False
+            for selItem in self._selectedItems:
+                if item == selItem:
+                    selected = True
+
+            if selected:
+                continue
+
+            self._scene.itemRemoveFromSelection(item)
+
+        # Select all items in rectangle
+        items = self._scene.items(rect)
+        for item in items:
+            if not self._scene.isGraphicsItem(item) or item == self._rectGraphics:
+                continue
+            item = item.root()
+            self._scene.itemAddToSelection(item, True)
+        return True
+
+
+
 
