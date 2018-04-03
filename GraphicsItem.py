@@ -17,12 +17,14 @@ NOT_DEFINED_TYPE = QGraphicsItem.UserType + 1
 LINE_TYPE = QGraphicsItem.UserType + 2
 GROUP_TYPE = QGraphicsItem.UserType + 3
 RECT_TYPE = QGraphicsItem.UserType + 4
+ELLIPSE_TYPE = QGraphicsItem.UserType + 5
 
 graphicsObjectsTypeNames = {
     NOT_DEFINED_TYPE: "not_defined",
     LINE_TYPE: "line",
     GROUP_TYPE: "group",
     RECT_TYPE: "rectangle",
+    ELLIPSE_TYPE: "ellipse",
 }
 
 
@@ -56,21 +58,26 @@ def mapToGrid(arg, gridSize):
 
 
 def createGraphicsObjectByProperties(ogjectProperties):
-    from GraphicsItemLine import *
-    from GraphicsItemRect import *
-    from GraphicsItemGroup import *
+    import GraphicsItemLine
+    import GraphicsItemRect
+    import GraphicsItemEllipse
+    import GraphicsItemGroup
 
     item = None
     if typeByName(ogjectProperties['type']) == GROUP_TYPE:
-        item = GraphicsItemGroup()
+        item = GraphicsItemGroup.GraphicsItemGroup()
         item.setProperties(ogjectProperties)
 
     if typeByName(ogjectProperties['type']) == LINE_TYPE:
-        item = GraphicsItemLine()
+        item = GraphicsItemLine.GraphicsItemLine()
         item.setProperties(ogjectProperties)
 
     if typeByName(ogjectProperties['type']) == RECT_TYPE:
-        item = GraphicsItemRect()
+        item = GraphicsItemRect.GraphicsItemRect()
+        item.setProperties(ogjectProperties)
+
+    if typeByName(ogjectProperties['type']) == ELLIPSE_TYPE:
+        item = GraphicsItemEllipse.GraphicsItemEllipse()
         item.setProperties(ogjectProperties)
 
     return item

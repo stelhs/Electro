@@ -14,7 +14,7 @@ class GraphicsItemLine(GraphicsItem, QGraphicsLineItem):
         self.markP2 = None
         self.selectedPoint = None
         self.graphicsItemsList.append(self)
-        self.setZValue(1)
+        self.setZValue(2)
         self.resetSelection()
         self.linePen = GraphicsItem.normalPen
         self.tracePen = QPen(Qt.black, 2, Qt.SolidLine, Qt.RoundCap)

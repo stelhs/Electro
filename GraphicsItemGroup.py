@@ -1,6 +1,7 @@
 from GraphicsItem import *
 from GraphicsItemLine import *
 from GraphicsItemRect import *
+from GraphicsItemEllipse import *
 
 
 
@@ -188,6 +189,11 @@ class GraphicsItemGroup(GraphicsItem):
 
                 if typeByName(itemProperties['type']) == RECT_TYPE:
                     item = GraphicsItemRect()
+                    item.setProperties(itemProperties)
+                    newItems.append(item)
+
+                if typeByName(itemProperties['type']) == ELLIPSE_TYPE:
+                    item = GraphicsItemEllipse()
                     item.setProperties(itemProperties)
                     newItems.append(item)
 

@@ -23,6 +23,7 @@ class ElectroScene(QGraphicsScene):
         self.graphicsItemsList = []
         self.drawingLine = None
         self.drawingRect = None
+        self.drawingEllipse = None
         self.multiSelected = False  # Shift key is pressed
         self.selectingByMouse = None  # select rectangular area for selecting items
         self.movingItem = False  # Moving selected items mode
@@ -273,6 +274,10 @@ class ElectroScene(QGraphicsScene):
             self.drawingRect = RectDrawing(self, QPen(Qt.black, 2, Qt.SolidLine), p)
             return
 
+        if self.currentTool() == 'ellipse':
+            self.drawingEllipse = RectDrawing(self, QPen(Qt.black, 2, Qt.SolidLine),
+                                              p, "ellipse")
+            return
 
 
 
@@ -329,7 +334,8 @@ class ElectroScene(QGraphicsScene):
                         self.editor.setTool(None)
                     return
 
-                if self.currentTool() == 'rectangle':
+                if (self.currentTool() == 'rectangle' or
+                    self.currentTool() == 'ellipse'):
                     self.editor.setTool(None)
                     return
 
@@ -440,6 +446,11 @@ class ElectroScene(QGraphicsScene):
                 return
             self.drawingRect.setEndPoint(point)
 
+        if self.currentTool() == 'ellipse':
+            if not self.drawingEllipse:
+                return
+            self.drawingEllipse.setEndPoint(point)
+
 
     def mouseMoveEvent(self, ev):
         if not self.inGraphicPaper(ev.scenePos()):
@@ -495,6 +506,17 @@ class ElectroScene(QGraphicsScene):
                 self.addGraphicsItem(rectangle)
                 self.history.addItems([rectangle])
                 self.drawingRect = None
+
+            if self.drawingEllipse:
+                rect = self.drawingEllipse.rect()
+                if not rect:
+                    self.drawingEllipse = None
+                    return
+                ellipse = GraphicsItemEllipse(self.drawingEllipse.rect())
+                self.drawingEllipse.remove()
+                self.addGraphicsItem(ellipse)
+                self.history.addItems([ellipse])
+                self.drawingEllipse = None
             return
 
         self.calculateSelectionCenter()
@@ -1065,11 +1087,12 @@ class ElectroScene(QGraphicsScene):
 
 
 class RectDrawing():
-    def __init__(self, scene, pen, startPoint):
+    def __init__(self, scene, pen, startPoint, type="rectangle"):
         self._startPoint = startPoint
         self._scene = scene
         self._pen = pen
         self._rectGraphics = None
+        self._type = type
 
 
     def setEndPoint(self, endPoint):
@@ -1097,7 +1120,13 @@ class RectDrawing():
             bottomRight = QPointF(x1, y1)
 
         if topLeft:
-            self._rectGraphics = QGraphicsRectItem(None, self._scene)
+            if self._type == "rectangle":
+                self._rectGraphics = QGraphicsRectItem(None, self._scene)
+            elif self._type == "ellipse":
+                self._rectGraphics = QGraphicsEllipseItem(None, self._scene)
+            else:
+                return None
+
             self._rectGraphics.setPen(self._pen)
             rect = QRectF(topLeft, bottomRight)
             self._rectGraphics.setRect(rect)

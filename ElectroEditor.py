@@ -443,6 +443,10 @@ class ElectroEditor(QMainWindow):
             self.setTool('rectangle')
             return
 
+        if key == 52:  # 4
+            self.setTool('ellipse')
+            return
+
 
         if key == 16777249:  # CTRL
             self.keyCTRL = True
