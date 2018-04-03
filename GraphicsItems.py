@@ -4,6 +4,12 @@ from pprint import *
 import json
 from PyQt4.Qt import QPoint
 from curses.textpad import rectangle
+import copy
+import pprint
+
+
+MAX_GRID_SIZE = 20
+
 
 graphicsItemLastId = 0
 
@@ -27,23 +33,47 @@ def typeByName(name):
             return type
     return NOT_DEFINED_TYPE
 
-# NOT_DEFINED_TYPE = 'not_defined'
-# LINE_TYPE = 'line'
-# GROUP_TYPE = 'group'
-# RECT_TYPE = 'rectangle'
+
+def mapToGrid(arg, gridSize):
+    argType = arg.__class__.__name__
+    if argType == 'QPointF':
+        point = arg
+        s = gridSize
+        x = round(point.x() / s) * s
+        y = round(point.y() / s) * s
+        return QPointF(x, y)
+
+    if argType == 'QRectF':
+        rect = arg
+        x = rect.topLeft().x() - gridSize
+        y = rect.topLeft().y() - gridSize
+        topLeft = mapToGrid(QPointF(x, y), gridSize)
+        x = rect.bottomRight().x() + gridSize
+        y = rect.bottomRight().y() + gridSize
+        bottomRight = mapToGrid(QPointF(x, y), gridSize)
+        rect = QRectF(topLeft, bottomRight)
+        print("mapToGrid rect = %s" % rect)
+        return rect
+
+
+def createGraphicsObjectByProperties(ogjectProperties):
+    item = None
+    if typeByName(ogjectProperties['type']) == GROUP_TYPE:
+        item = GraphicItemGroup()
+        item.setProperties(ogjectProperties)
+
+    if typeByName(ogjectProperties['type']) == LINE_TYPE:
+        item = GraphicItemLine()
+        item.setProperties(ogjectProperties)
+
+    return item
 
 
 def createGraphicsObjectsByProperties(properties):
     items = []
     for itemProp in properties:
-        if typeByName(itemProp['type']) == GROUP_TYPE:
-            item = GraphicItemGroup()
-            item.setProperties(itemProp)
-            items.append(item)
-
-        if typeByName(itemProp['type']) == LINE_TYPE:
-            item = GraphicItemLine()
-            item.setProperties(itemProp)
+        item = createGraphicsObjectByProperties(itemProp)
+        if item:
             items.append(item)
 
     return items
@@ -56,9 +86,9 @@ class GraphicItem():
     def __init__(self):
         self.selected = False
         self.copyOf = None
-        self.normalPen = QPen(Qt.black, 3, Qt.SolidLine, Qt.RoundCap)
+        self.normalPen = QPen(Qt.black, 2, Qt.SolidLine, Qt.RoundCap)
         self.selectedPen = QPen(Qt.magenta, 3, Qt.SolidLine, Qt.RoundCap)
-        self.highLightPen = QPen(Qt.blue, 5, Qt.SolidLine, Qt.RoundCap)
+        self.highLightPen = QPen(Qt.blue, 4, Qt.SolidLine, Qt.RoundCap)
         self.deltaCenter = None
         self.graphicsItemsList = []
         self._name = ""
@@ -206,6 +236,7 @@ class GraphicItem():
 
 
     def setProperties(self, properties):
+        properties = copy.deepcopy(properties)
         self.resetSelection()
         self.setColor(QColor(properties['color']['red'],
                              properties['color']['green'],
@@ -325,27 +356,22 @@ class GraphicItemGroup(GraphicItem):
             parentMountPoint = self.parent().pos()
 
         ItemsBoundingRect = poligon.boundingRect()
-        self.mountPoint = self._scene.mapToGrid(ItemsBoundingRect.topLeft() -
-                                                parentMountPoint)
+        self.mountPoint = mapToGrid(ItemsBoundingRect.topLeft() -
+                                    parentMountPoint,
+                                    MAX_GRID_SIZE)
 
 
     def setScene(self, scene):
         self._scene = scene
-        print("%d 1_setScene, pos = %s" % (self.id(), self.pos()))
 
         for item in self.items():
             item.setScene(scene)
 
-        print("%d 2_setScene, pos = %s" % (self.id(), self.pos()))
-
         if not self.pos():
             self.calculateMountPoint()
-        print("%d 3_setScene, pos = %s" % (self.id(), self.pos()))
 
         for item in self.items():
             item.setParent(self)
-
-        print("%d 4_setScene, pos = %s" % (self.id(), self.pos()))
 
 
     def scene(self):
@@ -355,7 +381,6 @@ class GraphicItemGroup(GraphicItem):
     def setParent(self, parentItem):
         if self.parent() and parentItem:
             return
-        print("%d setParent %s" % (self.id(), parentItem))
         GraphicItem.setParent(self, parentItem)
         if parentItem:
             self.mountPoint -= parentItem.pos()
@@ -416,6 +441,7 @@ class GraphicItemGroup(GraphicItem):
 
 
     def setProperties(self, properties):
+        properties = copy.deepcopy(properties)
         if typeByName(properties['type']) != GROUP_TYPE:
             return
 
@@ -510,7 +536,6 @@ class GraphicItemGroup(GraphicItem):
 
     def removeFromQScene(self):
         self.resetSelection()
-        print("removeFromQScene %d" % self.id())
 
         for item in self.items():
             item.setParent(None)
@@ -663,6 +688,7 @@ class GraphicItemLine(GraphicItem, QGraphicsLineItem):
 
 
     def setProperties(self, properties):
+        properties = copy.deepcopy(properties)
         if typeByName(properties['type']) != LINE_TYPE:
             return
         GraphicItem.setProperties(self, properties)

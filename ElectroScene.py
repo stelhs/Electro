@@ -7,6 +7,8 @@ from gtk.keysyms import ordfeminine
 import json
 
 
+
+
 class ElectroScene(QGraphicsScene):
 
 
@@ -20,12 +22,12 @@ class ElectroScene(QGraphicsScene):
         self.movingItem = False  # Moving selected items mode
         self.movedPointItems = []  # List of Moving point items
         self.mode = 'select'
-        self.selectedCenter = None
+        self.selectedCenter = QPointF(0, 0)
         self.keyCTRL = False
+        self.keyShift = False
         self.mousePos = QPointF(0, 0)
         self.drawLinesHistory = []  # temporary array of drawed lines between mouse left and right clicks
-        self.minGridSize = 5
-        self.maxGridSize = self.minGridSize * 4
+        self.minGridSize = MAX_GRID_SIZE / 4
         self.gridSize = self.minGridSize
         self.history = History(self)
 
@@ -44,7 +46,7 @@ class ElectroScene(QGraphicsScene):
 
         self.sceneRectSize = QPointF(400, 200)  # in minGridSize
 
-        self.setGrid(self.maxGridSize)
+        self.setGrid(MAX_GRID_SIZE)
 
 
         # configure graphic paper
@@ -68,9 +70,12 @@ class ElectroScene(QGraphicsScene):
 
     def changeGridSize(self):
         gridSize = self.gridSize
-        gridSize /= 2
+        print("1 gridSize = %d" % gridSize)
+        gridSize = gridSize / 2
+        print("2 gridSize = %d" % gridSize)
         if gridSize < self.minGridSize:
-            gridSize = self.maxGridSize
+            gridSize = MAX_GRID_SIZE
+        print("3 gridSize = %d" % gridSize)
         self.setGrid(gridSize)
 
 
@@ -117,14 +122,14 @@ class ElectroScene(QGraphicsScene):
             qp.drawLine(startX + 1, startY + (i + 1) * y_step,
                         startX + viewWidth - 1, startY + (i + 1) * y_step);
 
-        if self.gridSize != self.maxGridSize:
+        if self.gridSize != MAX_GRID_SIZE:
             # draw Max grid
-            p = self.mapToGrid(QPointF(startX - self.maxGridSize, startY - self.maxGridSize),
-                           self.maxGridSize)
+            p = self.mapToGrid(QPointF(startX - MAX_GRID_SIZE, startY - MAX_GRID_SIZE),
+                           MAX_GRID_SIZE)
             startX = p.x()
             startY = p.y()
-            x_step = self.maxGridSize
-            y_step = self.maxGridSize
+            x_step = MAX_GRID_SIZE
+            y_step = MAX_GRID_SIZE
             x_cnt = int(viewWidth / x_step)
             y_cnt = int(viewHeight / y_step)
             qp.setPen(QPen(Qt.black, 1))
@@ -174,13 +179,10 @@ class ElectroScene(QGraphicsScene):
             qp.drawText(rect, Qt.AlignCenter, "%s" % letters[i])
 
 
-    def mapToGrid(self, point, gridSize=None):
+    def mapToGrid(self, arg, gridSize=None):
         if not gridSize:
             gridSize = self.gridSize
-        s = gridSize
-        x = round(point.x() / s) * s
-        y = round(point.y() / s) * s
-        return QPointF(x, y)
+        return mapToGrid(arg, gridSize)
 
 
     def inGraphicPaper(self, point):
@@ -272,7 +274,7 @@ class ElectroScene(QGraphicsScene):
                 if not self.isGraphicsItem(item) or item == selectRect:
                     continue
                 item = item.root()
-                self.itemAddToSelection(item)
+                self.itemAddToSelection(item, True)
 
         return True
 
@@ -494,6 +496,8 @@ class ElectroScene(QGraphicsScene):
         if self.mode == 'moveSelectedItems':
             return
 
+        self.calculateSelectionCenter()
+
         selectingByMouse = self.selectingByMouse
 
         if len(self.movedPointItems):
@@ -533,6 +537,7 @@ class ElectroScene(QGraphicsScene):
         if key == 16777248:  # Shift
             print("Shift press")
             self.multiSelected = True
+            self.keyShift = True
             return
 
         if key == 16777249:  # CTRL
@@ -546,6 +551,7 @@ class ElectroScene(QGraphicsScene):
 
         if key == 83:  # S
             self.changeGridSize()
+            return
 
         if key == 68:  # D
             self.intersectionPointsShow()
@@ -562,8 +568,8 @@ class ElectroScene(QGraphicsScene):
                 return
 
         if key == 32:  # Space
-            if self.mode == 'pasteFromClipboard':
-                self.calculateSelectionCenter()
+#            if self.mode == 'pasteFromClipboard':
+            self.calculateSelectionCenter()
 
             if self.mode != 'pasteFromClipboard':
                 self.history.changeItemsStart(self.selectedGraphicsItems())
@@ -601,11 +607,13 @@ class ElectroScene(QGraphicsScene):
             self.pastFromClipboard()
             return
 
-        if key == 76:  # l (lock)
+        if not self.keyShift and key == 71:  # G (selected to group)
+            print("G")
             self.packSelectedIntoGroup("lock objects")
             return
 
-        if key == 85:  # u (unlock)
+        if self.keyShift and key == 71:  # Shift+G (ungroup selected groups)
+            print("Shift+G")
             self.unpackSelectedGroups()
             return
 
@@ -662,6 +670,7 @@ class ElectroScene(QGraphicsScene):
         if key == 16777248:  # Shift
             print("Shift unpress")
             self.multiSelected = False
+            self.keyShift = False
             return
 
         if key == 16777249:  # CTRL
@@ -722,23 +731,29 @@ class ElectroScene(QGraphicsScene):
         self.mode = mode
 
 
-    def calculateSelectionCenter(self):
+    def selectedItemsBoundingRect(self):
         poligon = QPolygonF()
         for item in self.selectedGraphicsItems():
             poligon += item.mapToScene(item.boundingRect())
         if not poligon:
             return
+        return poligon.boundingRect()
 
-        rect = poligon.boundingRect()
+
+    def calculateSelectionCenter(self):
+        rect = self.selectedItemsBoundingRect()
+        if not rect:
+            return
         self.selectedCenter = self.mapToGrid(rect.center())
-
-
-    def itemAddToSelection(self, item):
-        item.select()
-        item.markPointsShow()
-        self.calculateSelectionCenter()
         for item in self.selectedGraphicsItems():
             item.setCenter(self.selectedCenter)
+
+
+    def itemAddToSelection(self, item, fast=False):
+        item.select()
+        item.markPointsShow()
+        if not fast:
+            self.calculateSelectionCenter()
 
 
     def itemsAddToSelection(self, items):
@@ -750,7 +765,6 @@ class ElectroScene(QGraphicsScene):
         item.resetSelection()
         item.markPointsHide()
         item.unHighlight()
-        self.calculateSelectionCenter()
 
 
     def copySelectedToClipboard(self):
@@ -783,6 +797,22 @@ class ElectroScene(QGraphicsScene):
 
         self.setMode("pasteFromClipboard")
         return True
+
+
+    def pastComponent(self, group):
+        self.abortPastComponent()
+        self.resetSelectionItems()
+        self.addGraphicsItem(group)
+        self.itemAddToSelection(group)
+
+        group.moveByCenter(self.mapToGrid(self.mousePos))
+        self.setMode("pasteFromClipboard")
+
+
+    def abortPastComponent(self):
+        if self.mode == 'pasteFromClipboard':
+            self.removeGraphicsItems(self.selectedGraphicsItems())
+            self.setMode('select')
 
 
     def graphicsObjectFromJson(self, jsonText):
@@ -843,9 +873,12 @@ class ElectroScene(QGraphicsScene):
         group = self.packItemsIntoGroup(self.selectedGraphicsItems(), name)
         self.history.packGroup(group)
         self.itemAddToSelection(group)
+        return group
 
 
     def packItemsIntoGroup(self, items, name="undefined"):
+        if len(items) < 2:
+            return None
         group = GraphicItemGroup()
         group.setName(name)
         self.resetSelectionItems()
@@ -881,6 +914,18 @@ class ElectroScene(QGraphicsScene):
     def removeGraphicsItems(self, items):
         for item in items:
             self.removeGraphicsItem(item)
+
+
+    def grabSceneAsImage(self, imageRect):
+        self.resetSelectionItems()
+        sceneRect = self.sceneRect()
+        image = QImage(imageRect.size().toSize(), QImage.Format_ARGB32)
+        image.fill(Qt.white)
+
+        painter = QPainter(image)
+        self.render(painter, source=imageRect)
+        painter.end()
+        return image
 
 
     def intersectionPointsShow(self):

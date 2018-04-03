@@ -1,8 +1,19 @@
 from ElectroScene import *
 from ElectroSceneView import *
-from PyQt4.Qt import QWidget, QMainWindow, QLabel
+from PyQt4.Qt import QWidget, QMainWindow, QLabel, QPoint
+import os, glob, sys, pprint
+
+
 
 last_page_id = 0
+
+def editorPath():
+    return os.path.dirname(os.path.realpath(sys.argv[0]))
+
+
+def componentsPath():
+    return "%s/components" % editorPath()
+
 
 class PageWidget(QWidget):
 
@@ -11,9 +22,9 @@ class PageWidget(QWidget):
         global last_page_id
         QWidget.__init__(self)
         self._name = name
-        self.sceneView = ElectroSceneView(editor, ElectroScene(editor))
+        self._sceneView = ElectroSceneView(editor, ElectroScene(editor))
         layout = QVBoxLayout(self)
-        layout.addWidget(self.sceneView)
+        layout.addWidget(self._sceneView)
         self.editor = editor
         self.setLayout(layout)
         last_page_id += 1
@@ -33,8 +44,81 @@ class PageWidget(QWidget):
 
 
     def scene(self):
-        return self.sceneView.scene()
+        return self._sceneView.scene()
 
+
+    def sceneView(self):
+        return self._sceneView
+
+
+class Component(QListWidgetItem):
+    def __init__(self, name, group=None):
+        QListWidgetItem.__init__(self)
+        self._name = name
+        self._groupProperties = None
+        self._image = None
+        if group:
+            self._groupProperties = group.properties()
+        pass
+
+
+    def load(self):
+        f = open("%s/%s.ec" % (componentsPath(), self._name), "r")
+        content = f.read()
+        self._groupProperties = json.loads(content)
+
+        f.close()
+
+        self._image = QImage()
+        self._image.load("%s/%s.png" % (componentsPath(), self._name))
+
+        pixMap = QPixmap.fromImage(self.image())
+        self.setData(Qt.DecorationRole, pixMap)
+        return True
+
+
+    def save(self):
+        group = self.group()
+        rect = mapToGrid(group.boundingRect(), MAX_GRID_SIZE)
+        tempScene = QGraphicsScene()
+        tempScene.setSceneRect(rect)
+        group.setPos(rect.topLeft())
+        group.setScene(tempScene)
+
+        self._image = QImage(rect.size().toSize(), QImage.Format_ARGB32)
+        self._image.fill(Qt.transparent)
+        painter = QPainter(self._image)
+        tempScene.render(painter)
+        painter.end()
+
+        self._image = self._image.scaledToWidth(100, Qt.SmoothTransformation)
+        self._image.save("%s/%s.png" % (componentsPath(), self._name))
+
+        jsonProp = json.dumps(self._groupProperties)
+        f = open("%s/%s.ec" % (componentsPath(), self._name), "w")
+        f.write(jsonProp)
+        f.close()
+        pass
+
+
+    def removeFiles(self):
+        os.remove("%s/%s.ec" % (componentsPath(), self._name))
+        os.remove("%s/%s.png" % (componentsPath(), self._name))
+
+
+    def group(self):
+        if not self._groupProperties:
+            return False
+        group = createGraphicsObjectByProperties(self._groupProperties)
+
+        return group
+
+    def image(self):
+        return self._image
+
+
+    def mousePressEvent(self, ev):
+        print("bla")
 
 
 
@@ -47,6 +131,7 @@ class ElectroEditor(QMainWindow):
         self.app = app
         self.keyCTRL = False
         self.pages = []
+        self.componentList = []
 
         self.setWindowTitle("Electro editor")
 
@@ -70,7 +155,19 @@ class ElectroEditor(QMainWindow):
         self.statusBar.addPermanentWidget(self.gridSize)
         self.setStatusBar(self.statusBar)
 
+        # create editro tabs and components list
         self.tabWidget = QTabWidget()
+        self.componentListWidget = QListWidget()
+        self.componentListWidget.setFixedWidth(110)
+        def componentCliced(component):
+            self.scene().pastComponent(component.group())
+            self.sceneView().setFocus(True)
+
+        self.componentListWidget.itemClicked.connect(componentCliced)
+        editorSpace = QWidget()
+        layout = QHBoxLayout(editorSpace)
+        layout.addWidget(self.componentListWidget)
+        layout.addWidget(self.tabWidget)
 
         # make Line edit dialog
         self.lineEditDialog = QWidget()
@@ -78,21 +175,28 @@ class ElectroEditor(QMainWindow):
         lineEdit = QLineEdit()
         lineEdit.show()
         inputMessage = QLabel()
-        inputMessage.setText('bla:')
         layout.addWidget(inputMessage)
         layout.addWidget(lineEdit)
         self.lineEditDialog.hide()
 
-        self.mainLayout.addWidget(self.tabWidget)
+        # make components list
+
+        # set CSS style
+        f = open("%s/listComponents.css" % editorPath(), "r")
+        style = f.read()
+        f.close()
+        self.componentListWidget.setStyleSheet(style)
+
+
+        self.mainLayout.addWidget(editorSpace)
         self.mainLayout.addWidget(self.lineEditDialog)
 
+
         self.addPage("Page 1")
-        self.addPage("Page 2")
-        self.addPage("Page 3")
-        self.addPage("Page 4")
-        self.addPage("Page 5")
         self.setFocusPolicy(Qt.NoFocus)
-        self.app.installEventFilter(self)
+        self.tabWidget.installEventFilter(self)
+
+        self.loadComponents()
 
 
     def eventFilter(self, object, event):
@@ -130,6 +234,32 @@ class ElectroEditor(QMainWindow):
             return
         index = self.tabWidget.indexOf(currentPage)
         self.tabWidget.setCurrentIndex(index)
+
+
+    def loadComponents(self):
+        for fileName in glob.glob("%s/*.ec" % componentsPath()):
+            fileName = os.path.basename(fileName)
+            componentName = os.path.splitext(fileName)[0]
+            component = Component(componentName)
+            if not component.load():
+                print("error loading component %s" % componentName)
+            self.componentList.append(component)
+            self.componentListWidget.addItem(component)
+
+
+    def addComponent(self, name, group):
+        component = Component(name, group)
+        component.save()
+        component.load()
+        self.componentList.append(component)
+        self.componentListWidget.addItem(component)
+
+
+    def removeComponent(self, component):
+        self.componentListWidget.takeItem(self.componentListWidget.row(component))
+        component.removeFiles()
+        self.scene().abortPastComponent()
+        self.componentListWidget.clearSelection()
 
 
     def pageById(self, id):
@@ -203,6 +333,10 @@ class ElectroEditor(QMainWindow):
         return self.tabWidget.currentWidget().scene()
 
 
+    def sceneView(self):
+        return self.tabWidget.currentWidget().sceneView()
+
+
     def dialogLineEditShow(self, message, onReturn,
                            defaultValue="", selectAll=None):
         lineEdit = None
@@ -238,6 +372,11 @@ class ElectroEditor(QMainWindow):
         lineEdit.returnPressed.disconnect()
 
 
+    def mousePressEvent(self, ev):
+        self.componentListWidget.clearSelection()
+        QMainWindow.mousePressEvent(self, ev)
+
+
     def keyPressEvent(self, event):
         key = event.key()
         print key
@@ -263,11 +402,39 @@ class ElectroEditor(QMainWindow):
             self.moveCurrentPageRight()
             return
 
+        # add new component
+        if self.keyCTRL and key == 79:  # CTRL+O
+            def dialogOnReturn():
+                name = str(self.dialogLineEditLine.text())
+                self.dialogLineEditHide()
+                if not name:
+                    return
+
+                items = scene.selectedGraphicsItems()
+                if not len(items):
+                    return
+
+                group = scene.packItemsIntoGroup(items, name)
+                if not group:
+                    item = items[0]
+                    if item.type() != GROUP_TYPE:
+                        return
+                    group = item
+
+                self.addComponent(name, group)
+            if not len(scene.selectedGraphicsItems()):
+                return
+            self.dialogLineEditShow("Save selected as component. Enter new component name:",
+                                    dialogOnReturn)
+            return
+
         # add new page
         if self.keyCTRL and key == 80:  # CTRL+P
             def dialogOnReturn():
                 name = str(self.dialogLineEditLine.text())
                 self.dialogLineEditHide()
+                if not name:
+                    return
                 self.addPage(name)
             self.dialogLineEditShow("Enter new page name:", dialogOnReturn)
             return
@@ -279,6 +446,8 @@ class ElectroEditor(QMainWindow):
                 page = self.currectPage()
                 name = str(self.dialogLineEditLine.text())
                 self.dialogLineEditHide()
+                if not name:
+                    return
                 self.renamePage(page, name)
 
             self.dialogLineEditShow("Edit current page name:",
@@ -286,9 +455,23 @@ class ElectroEditor(QMainWindow):
                                     name)
             return
 
-        # remove current page
+        # remove component or current page
         if self.keyCTRL and key == 68:  # CTRL+D
-            def dialogOnReturn():
+            selectedComponents = self.componentListWidget.selectedItems()
+            if len(selectedComponents):
+                def dialogOnRemoveComponent():
+                    self.dialogLineEditHide()
+                    answer = str(self.dialogLineEditLine.text())
+                    if answer != 'yes' and answer != 'y':
+                        return
+                    for component in selectedComponents:
+                        self.removeComponent(component)
+                self.dialogLineEditShow("Remove selected components?:",
+                                        dialogOnRemoveComponent,
+                                        "no", True)
+                return
+
+            def dialogOnRemovePage():
                 page = self.currectPage()
                 answer = str(self.dialogLineEditLine.text())
                 self.dialogLineEditHide()
@@ -296,7 +479,7 @@ class ElectroEditor(QMainWindow):
                     self.detachPage(page)
 
             self.dialogLineEditShow("Remove current page?:",
-                                    dialogOnReturn,
+                                    dialogOnRemovePage,
                                     "no", True)
             return
 
@@ -347,3 +530,5 @@ class ElectroEditor(QMainWindow):
 
     def setTextStatusBar(self, text):
         self.statusBar.setText(text)
+
+
