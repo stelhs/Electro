@@ -1,7 +1,8 @@
 from ElectroScene import *
 from ElectroSceneView import *
+from LineEditValidators import *
 from PyQt4.Qt import QWidget, QMainWindow, QLabel, QPoint, QTimer
-import os, glob, sys, pprint
+import os, glob, sys, pprint, re
 
 
 
@@ -82,6 +83,7 @@ class Component(QListWidgetItem):
         rect = mapToGrid(group.boundingRect(), MAX_GRID_SIZE)
         tempScene = QGraphicsScene()
         tempScene.setSceneRect(rect)
+        group.setIndex(0)
         group.setPos(rect.topLeft())
         group.setScene(tempScene)
 
@@ -110,8 +112,8 @@ class Component(QListWidgetItem):
         if not self._groupProperties:
             return False
         group = createGraphicsObjectByProperties(self._groupProperties)
-
         return group
+
 
     def image(self):
         return self._image
@@ -119,6 +121,12 @@ class Component(QListWidgetItem):
 
     def name(self):
         return self._name
+
+
+    def prefixName(self):
+        if not 'prefixName' in self._groupProperties:
+            return ""
+        return self._groupProperties['prefixName']
 
 
 
@@ -142,6 +150,9 @@ class ElectroEditor(QMainWindow):
         self.currentCursorCoordinatesLabel = QLabel()
         self.currentCursorCoordinatesLabel.setFrameStyle(Qt.SolidLine)
 
+        self.currentGraphicsItemLabel = QLabel()
+        self.currentGraphicsItemLabel.setFrameStyle(Qt.SolidLine)
+
         self.currentScaleLabel = QLabel()
         self.currentScaleLabel.setFrameStyle(Qt.SolidLine)
 
@@ -154,6 +165,7 @@ class ElectroEditor(QMainWindow):
         self.statusBar = QStatusBar()
         self.statusBar.addPermanentWidget(self.editorToolLabel)
         self.statusBar.addPermanentWidget(self.currentCursorCoordinatesLabel)
+        self.statusBar.addPermanentWidget(self.currentGraphicsItemLabel)
         self.statusBar.addPermanentWidget(self.currentScaleLabel)
         self.statusBar.addPermanentWidget(self.gridSizeLabel)
         self.setStatusBar(self.statusBar)
@@ -201,7 +213,6 @@ class ElectroEditor(QMainWindow):
         layout.addWidget(inputMessage)
         layout.addWidget(lineEdit)
         self.lineEditDialog.hide()
-
 
         self.statusBarMessageTimer = QTimer()
 
@@ -363,8 +374,8 @@ class ElectroEditor(QMainWindow):
         return self.tabWidget.currentWidget().sceneView()
 
 
-    def dialogLineEditShow(self, message, onReturn,
-                           defaultValue="", selectAll=None):
+    def dialogLineEditShow(self, message, onSuccess,
+                           defaultValue="", selectAll=None, validator=None):
         lineEdit = None
         items = self.lineEditDialog.children()
         for item in items:
@@ -374,9 +385,18 @@ class ElectroEditor(QMainWindow):
             if item.__class__.__name__ == 'QLabel':
                 label = item
 
+        lineEdit.setValidator(None)
+        if validator:
+            validator.setLineEdit(lineEdit)
+            lineEdit.setValidator(validator)
+
         label.setText(message)
         self.dialogLineEditLine = lineEdit
         lineEdit.setText(defaultValue)
+
+        def onReturn():
+            self.dialogLineEditHide()
+            onSuccess(str(lineEdit.text()))
         lineEdit.returnPressed.connect(onReturn)
         self.lineEditDialog.show()
         lineEdit.setFocus()
@@ -461,13 +481,8 @@ class ElectroEditor(QMainWindow):
 
         # add new component
         if self.keyCTRL and key == 79:  # CTRL+O
-            def dialogOnReturn():
-                name = str(self.dialogLineEditLine.text())
-                self.dialogLineEditHide()
-                if not name:
-                    self.showStatusBarErrorMessage("no component name entered")
-                    return
-
+            def dialogOnReturn(str):
+                [name, prefix] = str.split()
                 items = scene.selectedGraphicsItems()
                 if not len(items):
                     self.showStatusBarErrorMessage("no selected items")
@@ -480,21 +495,24 @@ class ElectroEditor(QMainWindow):
                         return
                     group = item
 
+                group.setPrefixName(prefix)
+                if not group.index():
+                    group.setIndex(self.findFreeComponentIndex(prefix))
                 self.addComponent(name, group)
                 self.showStatusBarMessage("added component: %s" % name)
 
             if not len(scene.selectedGraphicsItems()):
                 self.showStatusBarErrorMessage("no selected items")
                 return
-            self.dialogLineEditShow("Save selected as component. Enter new component name:",
-                                    dialogOnReturn)
+
+            validator = ComponentNameValidator(self)
+            self.dialogLineEditShow("Save selected as component. Enter new component file name and component_prefix:",
+                                    dialogOnReturn, validator=validator)
             return
 
         # add new page
         if self.keyCTRL and key == 80:  # CTRL+P
-            def dialogOnReturn():
-                name = str(self.dialogLineEditLine.text())
-                self.dialogLineEditHide()
+            def dialogOnReturn(name):
                 if not name:
                     self.showStatusBarErrorMessage("no page name entered")
                     return
@@ -504,11 +522,47 @@ class ElectroEditor(QMainWindow):
 
         # edit page name
         if self.keyCTRL and key == 69:  # CTRL+E
+            selectedItems = self.scene().selectedGraphicsItems()
+            if len(selectedItems):
+                groupsSelected = []
+                for item in selectedItems:
+                    if item.type() != GROUP_TYPE:
+                        continue
+                    groupsSelected.append(item)
+
+                if len(groupsSelected) == 0:
+                    self.showStatusBarErrorMessage("No group are selected")
+                    return
+
+                if len(groupsSelected) > 1:
+                    self.showStatusBarErrorMessage("Too much groups are selected")
+                    return
+
+                string = ""
+                group = groupsSelected[0]
+                if group.prefixName():
+                    string = group.indexName()
+
+                # edit group
+                def dialogOnReturn(text):
+                    res = self.unpackGroupIndexName(text)
+                    if not res:
+                        self.showStatusBarErrorMessage("Incorrect component name")
+                        return
+                    [prefixName, index] = res
+                    group.setPrefixName(prefixName)
+                    group.setIndex(index)
+
+                validator = EditGroupValidator(self, group)
+                self.dialogLineEditShow("Edit selected group. Enter component_prefix and press Space:",
+                                        dialogOnReturn, string,
+                                        validator=validator)
+                return
+
+            # edit page
             name = self.currectPage().name()
-            def dialogOnReturn():
+            def dialogOnReturn(name):
                 page = self.currectPage()
-                name = str(self.dialogLineEditLine.text())
-                self.dialogLineEditHide()
                 if not name:
                     self.showStatusBarErrorMessage("no page name entered")
                     return
@@ -523,28 +577,31 @@ class ElectroEditor(QMainWindow):
         if self.keyCTRL and key == 68:  # CTRL+D
             selectedComponents = self.componentListWidget.selectedItems()
             if len(selectedComponents):
-                def dialogOnRemoveComponent():
-                    self.dialogLineEditHide()
-                    answer = str(self.dialogLineEditLine.text())
+                # remove component
+                def dialogOnRemoveComponent(answer):
                     if answer != 'yes' and answer != 'y':
                         return
                     for component in selectedComponents:
                         self.removeComponent(component)
+                validator = YesNoValidator(self)
                 self.dialogLineEditShow("Remove selected components?:",
                                         dialogOnRemoveComponent,
-                                        "no", True)
+                                        "no", selectAll=True,
+                                        validator=validator)
                 return
 
-            def dialogOnRemovePage():
+            # remove page
+            def dialogOnRemovePage(answer):
                 page = self.currectPage()
-                answer = str(self.dialogLineEditLine.text())
                 self.dialogLineEditHide()
                 if answer == 'yes' or answer == 'y':
                     self.detachPage(page)
 
+            validator = YesNoValidator(self)
             self.dialogLineEditShow("Remove current page?:",
                                     dialogOnRemovePage,
-                                    "no", True)
+                                    "no", selectAll=True,
+                                    validator=validator)
             return
 
         if (key == 16777234 or key == 16777236 or
@@ -586,15 +643,23 @@ class ElectroEditor(QMainWindow):
         self.editorToolLabel.setText("Tool: %s" % tool)
 
 
-    def setCursorCoordinates(self, point):
+    def setStatusCursorCoordinates(self, point):
         self.currentCursorCoordinatesLabel.setText("x: %d, y: %d" % (point.x(), point.y()))
 
 
-    def setScale(self, scale):
+    def setStatusGraphicsItemInfo(self, item=None):
+        if not item:
+            self.currentGraphicsItemLabel.setText("")
+            return
+        self.currentGraphicsItemLabel.setText("id: %d, type: %s" % (
+                                              item.id(), item.typeName()))
+
+
+    def setStatusScale(self, scale):
         self.currentScaleLabel.setText("Scale: %d%%" % scale)
 
 
-    def setGridSize(self, gridSize):
+    def setStatusGridSize(self, gridSize):
         self.gridSizeLabel.setText("Grid: %dpx" % gridSize)
 
 
@@ -603,11 +668,10 @@ class ElectroEditor(QMainWindow):
 
 
     def showStatusBarErrorMessage(self, message, time=5):
-        self.statusBar.setStyleSheet("color: Red")
-        self.showStatusBarMessage("Error: " + message, time)
+        self.showStatusBarMessage("Error: " + message, time, 'red')
 
 
-    def showStatusBarMessage(self, message, time=5):
+    def showStatusBarMessage(self, message, time=5, color="black"):
         self.statusBar.showMessage(message)
         if not time:
             return
@@ -616,6 +680,7 @@ class ElectroEditor(QMainWindow):
             self.statusBar.showMessage("")
             self.statusBarMessageTimer.stop()
             self.statusBar.setStyleSheet("color: Black")
+        self.statusBar.setStyleSheet("color: %s" % color)
         self.statusBarMessageTimer.timeout.connect(messageHide)
         self.statusBarMessageTimer.start(time * 1000)
 
@@ -625,7 +690,80 @@ class ElectroEditor(QMainWindow):
             self.componentInfoLabel.setText("")
             return
         info = "Component\n"
-        info += "name: %s" % component.name()
-
+        info += "file: %s\n" % component.name()
+        info += "prefix: %s\n" % component.prefixName()
         self.componentInfoLabel.setText(info)
+
+
+    def showGroupInfo(self, group=None):
+        if not group or group.type() != GROUP_TYPE:
+            self.componentInfoLabel.setText("")
+            return
+        info = "Group\n"
+        info += "name: %s\n" % group.name()
+        info += "id: %d\n" % group.id()
+        info += "index: %s\n" % group.indexName()
+        self.componentInfoLabel.setText(info)
+
+
+    def unpackGroupIndexName(self, indexName):
+        found = re.findall('[A-Za-z]+', indexName)
+        if not len(found):
+            return None
+        prefixName = found[0]
+
+        found = re.findall('\d+', indexName)
+        if not len(found):
+            return None
+        index = found[0]
+        return prefixName, int(index)
+
+
+    def findGroupByIndexName(self, indexName, excludeGroup=None):
+        print("findGroupByIndexName %s" % indexName)
+        res = self.unpackGroupIndexName(indexName)
+        if not res:
+            return None
+        [prefixName, index] = res
+
+        for page in self.pages:
+            groups = page.scene().graphicsItems(GROUP_TYPE)
+            for group in groups:
+                if excludeGroup and group.id() == excludeGroup.id():
+                    continue
+                if not group.prefixName():
+                    continue
+                if group.prefixName() == prefixName and group.index() == index:
+                    print("group found")
+                    return group
+        return None
+
+
+    def findFreeComponentIndex(self, prefixName):
+        listIndexes = []
+        # get index list by all components
+        for page in self.pages:
+            groups = page.scene().graphicsItems(GROUP_TYPE)
+            for group in groups:
+                if not group.prefixName():
+                    continue
+                if group.prefixName() != prefixName:
+                     continue
+                listIndexes.append(group.index())
+
+        if not len(listIndexes):
+            return 1
+
+        listIndexes.sort()
+
+        # find free index
+        supposedIndex = 1
+        for busyIndex in listIndexes:
+            if busyIndex != supposedIndex:
+                return supposedIndex
+            supposedIndex += 1
+        return supposedIndex
+
+
+
 

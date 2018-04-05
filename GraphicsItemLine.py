@@ -19,6 +19,7 @@ class GraphicsItemLine(GraphicsItem, QGraphicsLineItem):
         self.linePen = GraphicsItem.normalPen
         self.tracePen = QPen(Qt.black, 2, Qt.SolidLine, Qt.RoundCap)
         self.normalPen = self.linePen
+        self.arrowsType = None
 
         self.setTypeLine(self._typeLine)
 
@@ -37,6 +38,15 @@ class GraphicsItemLine(GraphicsItem, QGraphicsLineItem):
 
     def typeLine(self):
         return self._typeLine
+
+
+    def changeArrows(self, arrowsType):
+        self.arrowsType = arrowsType
+
+
+    def paint(self, painter, style, widget):
+        # TODO: implement arrows
+        QGraphicsLineItem.paint(self, painter, style, widget)
 
 
     def markPointsShow(self):

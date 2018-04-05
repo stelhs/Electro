@@ -72,7 +72,7 @@ class ElectroScene(QGraphicsScene):
 
     def setGrid(self, gridSize):
         self.gridSize = gridSize
-        self.editor.setGridSize(gridSize)
+        self.editor.setStatusGridSize(gridSize)
         self.update()
 
 
@@ -419,6 +419,8 @@ class ElectroScene(QGraphicsScene):
         if not len(items):
             return
 
+        self.editor.setStatusGraphicsItemInfo(None)
+        self.editor.showGroupInfo(None)
         for item in items:
             item.unHighlight()
             if not item.isSelected():
@@ -429,6 +431,8 @@ class ElectroScene(QGraphicsScene):
             return
         item.markPointsShow()
         item.highlight()
+        self.editor.setStatusGraphicsItemInfo(item)
+        self.editor.showGroupInfo(item)
 
 
     def mouseMoveEventModeUseTool(self, point):
@@ -459,7 +463,7 @@ class ElectroScene(QGraphicsScene):
         self.mousePos = ev.scenePos()
 
         point = self.mapToGrid(ev.scenePos())
-        self.editor.setCursorCoordinates(point)
+        self.editor.setStatusCursorCoordinates(point)
 
         if self.mode == 'select':
             self.mouseMoveEventDisplayPoints(ev)
@@ -638,7 +642,7 @@ class ElectroScene(QGraphicsScene):
 
         if not self.keyShift and key == 71:  # G (selected to group)
             print("G")
-            self.packSelectedIntoGroup("lock objects")
+            self.packSelectedIntoGroup()
             return
 
         if self.keyShift and key == 71:  # Shift+G (ungroup selected groups)
@@ -728,9 +732,9 @@ class ElectroScene(QGraphicsScene):
             item.moveByCenter(point)
 
 
-    def selectedGraphicsItems(self):
+    def selectedGraphicsItems(self, type=None):
         items = []
-        for item in self.graphicsItems():
+        for item in self.graphicsItems(type):
             if not item.isSelected():
                 continue
             items.append(item)
@@ -830,6 +834,18 @@ class ElectroScene(QGraphicsScene):
             print("no data")
             return False
 
+        # set index for new root groups
+        for item in items:
+            rootItem = item.root()
+            if item.type() != GROUP_TYPE:
+                continue
+            group = item
+            if group.prefixName():
+                group.setIndex(0)
+                newIndex = self.editor.findFreeComponentIndex(group.prefixName())
+                group.setIndex(newIndex)
+
+        # add items to scene
         for item in items:
             self.addGraphicsItem(item)
             self.itemAddToSelection(item)
@@ -842,11 +858,14 @@ class ElectroScene(QGraphicsScene):
 
 
     def pastComponent(self, group):
+        if group.prefixName():
+            newIndex = self.editor.findFreeComponentIndex(group.prefixName())
+            group.setIndex(newIndex)
+
         self.abortPastComponent()
         self.resetSelectionItems()
         self.addGraphicsItem(group)
         self.itemAddToSelection(group)
-
         group.moveByCenter(self.mapToGrid(self.mousePos))
         self.setMode("pasteFromClipboard")
 
@@ -875,8 +894,14 @@ class ElectroScene(QGraphicsScene):
             item.setCenter(self.selectedCenter)
 
 
-    def graphicsItems(self):
-        return self.graphicsItemsList
+    def graphicsItems(self, type=None):
+        if not type:
+            return self.graphicsItemsList
+        items = []
+        for item in self.graphicsItemsList:
+            if item.type() == type:
+                items.append(item)
+        return items
 
 
     def graphicsUnpackedItems(self):
@@ -909,7 +934,7 @@ class ElectroScene(QGraphicsScene):
         return True
 
 
-    def packSelectedIntoGroup(self, name):
+    def packSelectedIntoGroup(self, name=None):
         if len(self.selectedGraphicsItems()) < 2:
             return None
         group = self.packItemsIntoGroup(self.selectedGraphicsItems(), name)
@@ -918,9 +943,12 @@ class ElectroScene(QGraphicsScene):
         return group
 
 
-    def packItemsIntoGroup(self, items, name="undefined"):
+    def packItemsIntoGroup(self, items, name=None):
         if len(items) < 2:
             return None
+        if not name:
+            name = "undefined"
+
         group = GraphicsItemGroup()
         group.setName(name)
         self.resetSelectionItems()
@@ -935,8 +963,17 @@ class ElectroScene(QGraphicsScene):
             return
         group.markPointsHide()
         items = group.items()
+
         self.removeGraphicsItem(group)
-        self.addGraphicsItems(items)
+
+        # assign index name for all unpacked groups
+        for item in items:
+            if item.type() == GROUP_TYPE and item.prefixName():
+                newIndex = self.editor.findFreeComponentIndex(item.prefixName())
+                print("set new index %d" % newIndex)
+                item.setIndex(newIndex)
+            self.addGraphicsItem(item)
+
         return items
 
 

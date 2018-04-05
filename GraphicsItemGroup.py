@@ -6,18 +6,42 @@ from GraphicsItemEllipse import *
 
 
 class GraphicsItemGroup(GraphicsItem):
-
-
     def __init__(self):
         GraphicsItem.__init__(self)
         self.selectedPoint = None
         self.markRect = None
         self._scene = None
         self.mountPoint = QPointF(0, 0)
+        self._prefixName = None
+        self._index = 0
 
 
     def type(self):
         return GROUP_TYPE
+
+
+    def prefixName(self):
+        return self._prefixName
+
+
+    def index(self):
+        return self._index
+
+
+    def indexName(self):
+        if self._prefixName:
+            return "%s%d" % (self._prefixName, self._index)
+        return ""
+
+
+    def setPrefixName(self, name):
+        if self._prefixName != name:
+            self._index = 0
+        self._prefixName = name
+
+
+    def setIndex(self, index):
+        self._index = int(index)
 
 
     def posFromParent(self):
@@ -43,6 +67,8 @@ class GraphicsItemGroup(GraphicsItem):
             return False
 
         for item in items:
+            if item.type() == GROUP_TYPE:
+                item.setIndex(0)
             item.removeFromQScene()
             self.graphicsItemsList.append(item)
 
@@ -142,6 +168,9 @@ class GraphicsItemGroup(GraphicsItem):
         properties['type'] = self.typeName()
         properties['mountPoint'] = {'x': self.mountPoint.x(),
                                     'y': self.mountPoint.y()}
+        if self.prefixName():
+            properties['prefixName'] = self.prefixName()
+            properties['index'] = self.index()
 
         itemProperties = []
         for item in self.items():
@@ -158,6 +187,10 @@ class GraphicsItemGroup(GraphicsItem):
 
         self.markPointsHide()
         self.setName(properties['name'])
+        if 'prefixName' in properties:
+            self.setPrefixName(properties['prefixName'])
+            self.setIndex(properties['index'])
+
         newMountPoint = QPointF(properties['mountPoint']['x'],
                                 properties['mountPoint']['y'])
         if self.parent():

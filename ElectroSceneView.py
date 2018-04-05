@@ -16,7 +16,7 @@ class ElectroSceneView(QGraphicsView):
         # self.verticalScrollBar().setValue(scene.sceneRect().top())
         self.setMouseTracking(True)
         self.scalePercent = 100
-        self.editor.setScale(self.scalePercent)
+        self.editor.setStatusScale(self.scalePercent)
         # self.setFocusPolicy(Qt.NoFocus)
 
 
@@ -33,7 +33,7 @@ class ElectroSceneView(QGraphicsView):
         newMousePos = mousePos + (movedPos - zoomPos)
         c.setPos(newMousePos)
         self.scalePercent *= self.zoomFactor
-        self.editor.setScale(self.scalePercent)
+        self.editor.setStatusScale(self.scalePercent)
 
 
     def zoomOut(self, zoomPos):
@@ -49,7 +49,7 @@ class ElectroSceneView(QGraphicsView):
         newMousePos = mousePos + (movedPos - zoomPos)
         c.setPos(newMousePos)
         self.scalePercent /= self.zoomFactor
-        self.editor.setScale(self.scalePercent)
+        self.editor.setStatusScale(self.scalePercent)
 
 
     def zoomReset(self, zoomPos):
@@ -64,7 +64,7 @@ class ElectroSceneView(QGraphicsView):
         newMousePos = mousePos + (movedPos - zoomPos)
         c.setPos(newMousePos)
         self.scalePercent = 100
-        self.editor.setScale(self.scalePercent)
+        self.editor.setStatusScale(self.scalePercent)
 
 
     def wheelEvent(self, event):
