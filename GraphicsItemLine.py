@@ -136,14 +136,10 @@ class GraphicsItemLine(GraphicsItem, QGraphicsLineItem):
             delta = self.p2() - new_point
             self.setP1(new_point)
             self.setP2(QPointF(new_point + delta))
-            if self.p1() == self.p2():
-                self.scene().removeGraphicsItem(self)
             return True
 
         if self.selectedPoint == 2:
             self.setP2(new_point)
-            if self.p1() == self.p2():
-                self.scene().removeGraphicsItem(self)
             return True
 
         return False

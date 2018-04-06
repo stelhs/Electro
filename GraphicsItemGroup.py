@@ -14,6 +14,9 @@ class GraphicsItemGroup(GraphicsItem):
         self.mountPoint = QPointF(0, 0)
         self._prefixName = None
         self._index = 0
+        self.indexNameLabel = QGraphicsSimpleTextItem()
+        self.indexNameLabel.setBrush(QBrush(Qt.black))
+        self.indexNameLabel.setZValue(0)
 
 
     def type(self):
@@ -41,7 +44,10 @@ class GraphicsItemGroup(GraphicsItem):
 
 
     def setIndex(self, index):
+        if not self.prefixName():
+            return
         self._index = int(index)
+        self.indexNameLabel.setText(self.indexName())
 
 
     def posFromParent(self):
@@ -59,6 +65,8 @@ class GraphicsItemGroup(GraphicsItem):
             item.setPos(item.pos() + delta)
 
         self.mountPoint = newMountPoint
+        self.indexNameLabel.setPos(self.mountPoint - QPointF(MAX_GRID_SIZE, 0))
+
         # print("%d setPos %s, mountPoint = %s, pos = %s" % (self.id(), point, self.mountPoint, self.pos()))
 
 
@@ -109,6 +117,9 @@ class GraphicsItemGroup(GraphicsItem):
 
         for item in self.items():
             item.setParent(self)
+
+        scene.addItem(self.indexNameLabel)
+
 
 
     def scene(self):
@@ -290,6 +301,10 @@ class GraphicsItemGroup(GraphicsItem):
 
     def removeFromQScene(self):
         self.resetSelection()
+
+        if self.indexNameLabel.scene():
+            scene = self.indexNameLabel.scene()
+            scene.removeItem(self.indexNameLabel)
 
         for item in self.items():
             item.setParent(None)

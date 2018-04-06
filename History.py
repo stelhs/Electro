@@ -231,10 +231,12 @@ class History():
 
 
     def changeItemsStart(self, items):
+        print("changeItemsStart")
         self.changeItemsAction = ActionChangeItems(self.scene, items)
 
 
     def changeItemsFinish(self, actions=None):
+        print("changeItemsFinish")
         if not self.changeItemsAction:
             return
 

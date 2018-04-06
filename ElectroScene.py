@@ -8,6 +8,7 @@ from GraphicsItem import *
 from GraphicsItemLine import *
 from GraphicsItemRect import *
 from GraphicsItemGroup import *
+from GraphicsItemLink import *
 
 
 
@@ -352,13 +353,31 @@ class ElectroScene(QGraphicsScene):
         QGraphicsScene.mousePressEvent(self, ev)
 
 
+
+    def mouseDoubleClickEvent(self, ev):
+        if ev.button() == 1:
+            if self.mode == 'select':
+                item = self.graphicItemByCoordinate(ev.scenePos())
+                if not item:
+                    return
+                if item.type() == GROUP_TYPE:
+                    self.editor.showEditGroupIndexName(item)
+
+
+
     def stopLineDrawing(self):
         if not self.drawingLine:
             return
 
         self.removeGraphicsItem(self.drawingLine)
         self.drawingLine = None
-        self.history.addItems(self.drawLinesHistory)
+        correctLines = []
+        for line in self.drawLinesHistory:
+            if line.isNullSize():
+                self.removeGraphicsItem(line)
+                continue
+            correctLines.append(line)
+        self.history.addItems(correctLines)
         self.drawLinesHistory = []
 
 
@@ -399,6 +418,7 @@ class ElectroScene(QGraphicsScene):
         for item in self.selectedGraphicsItems():
             item.setCenter(self.selectedCenter)
         self.movingItem = True
+        self.history.changeItemsStart(self.selectedGraphicsItems())
         return
 
 
@@ -506,6 +526,8 @@ class ElectroScene(QGraphicsScene):
                     self.drawingRect = None
                     return
                 rectangle = GraphicsItemRect(self.drawingRect.rect())
+                if rectangle.isNullSize():
+                    return
                 self.drawingRect.remove()
                 self.addGraphicsItem(rectangle)
                 self.history.addItems([rectangle])
@@ -517,6 +539,8 @@ class ElectroScene(QGraphicsScene):
                     self.drawingEllipse = None
                     return
                 ellipse = GraphicsItemEllipse(self.drawingEllipse.rect())
+                if ellipse.isNullSize():
+                    return
                 self.drawingEllipse.remove()
                 self.addGraphicsItem(ellipse)
                 self.history.addItems([ellipse])

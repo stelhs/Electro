@@ -6,8 +6,6 @@ import os, glob, sys, pprint, re
 
 
 
-last_page_id = 0
-
 def editorPath():
     return os.path.dirname(os.path.realpath(sys.argv[0]))
 
@@ -16,24 +14,34 @@ def componentsPath():
     return "%s/components" % editorPath()
 
 
+page_last_id = 0
+
 class PageWidget(QWidget):
 
 
     def __init__(self, editor, name):
-        global last_page_id
         QWidget.__init__(self)
+        global page_last_id
         self._name = name
         self._sceneView = ElectroSceneView(editor, ElectroScene(editor))
         layout = QVBoxLayout(self)
         layout.addWidget(self._sceneView)
         self.editor = editor
         self.setLayout(layout)
-        last_page_id += 1
-        self.pageId = last_page_id
+        page_last_id += 1
+        self._id = page_last_id
 
 
-    def id(self):
-        return self.pageId
+    def setNum(self, num):
+        self.pageNum = num
+
+
+    def id(self, num):
+        return self._id
+
+
+    def num(self):
+        return self.pageNum
 
 
     def name(self):
@@ -173,6 +181,8 @@ class ElectroEditor(QMainWindow):
         # create editor tabs and components list
         self.tabWidget = QTabWidget()
         def tabChanged(index):
+            if index < 0:
+                return
             page = self.tabWidget.widget(index)
             self.setEditorTool(page.scene().currentTool())
 
@@ -227,7 +237,7 @@ class ElectroEditor(QMainWindow):
         self.mainLayout.addWidget(self.lineEditDialog)
 
 
-        self.addPage("Page 1")
+        self.addPage("Undefined")
         self.setFocusPolicy(Qt.NoFocus)
         self.tabWidget.installEventFilter(self)
 
@@ -264,8 +274,12 @@ class ElectroEditor(QMainWindow):
     def actualizePagesTabs(self, currentPage=None):
         for i in range(self.tabWidget.count()):
              self.tabWidget.removeTab(i)
+
+        i = 0
         for page in self.pages:
-            self.tabWidget.addTab(page, page.name())
+            i += 1
+            self.tabWidget.addTab(page, "%d: %s" % (i, page.name()))
+            page.setNum(i)
 
         if not currentPage:
             return
@@ -430,6 +444,7 @@ class ElectroEditor(QMainWindow):
         self.componentListWidget.clearSelection()
         self.showComponentInfo()
         QMainWindow.mousePressEvent(self, ev)
+        self.dialogLineEditHide()
 
         if self.scene().currentTool() == 'useTool':
             self.scene().abortTool()
@@ -538,25 +553,7 @@ class ElectroEditor(QMainWindow):
                     self.showStatusBarErrorMessage("Too much groups are selected")
                     return
 
-                string = ""
-                group = groupsSelected[0]
-                if group.prefixName():
-                    string = group.indexName()
-
-                # edit group
-                def dialogOnReturn(text):
-                    res = self.unpackGroupIndexName(text)
-                    if not res:
-                        self.showStatusBarErrorMessage("Incorrect component name")
-                        return
-                    [prefixName, index] = res
-                    group.setPrefixName(prefixName)
-                    group.setIndex(index)
-
-                validator = EditGroupValidator(self, group)
-                self.dialogLineEditShow("Edit selected group. Enter component_prefix and press Space:",
-                                        dialogOnReturn, string,
-                                        validator=validator)
+                self.showEditGroupIndexName(groupsSelected[0])
                 return
 
             # edit page
@@ -627,6 +624,26 @@ class ElectroEditor(QMainWindow):
 
         self.scene().keyReleaseEvent(event)
         return
+
+
+    def showEditGroupIndexName(self, group):
+        string = ""
+        if group.prefixName():
+            string = group.indexName()
+
+        def dialogOnReturn(text):
+            res = self.unpackGroupIndexName(text)
+            if not res:
+                self.showStatusBarErrorMessage("Incorrect component name")
+                return
+            [prefixName, index] = res
+            group.setPrefixName(prefixName)
+            group.setIndex(index)
+
+        validator = EditGroupValidator(self, group)
+        self.dialogLineEditShow("Edit selected group. Enter component_prefix and press Space:",
+                                dialogOnReturn, string,
+                                validator=validator)
 
 
     def toClipboard(self, text):

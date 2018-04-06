@@ -110,12 +110,15 @@ class EditGroupValidator(DialogLineEditValidator):
         if not len(string):
             return QValidator.Intermediate, pos
 
+        # string can not begin with digit
         if string.isdigit():
             return QValidator.Invalid, pos
 
+        # string can not end with letters
         if len(string) > 1 and not string[-1].isdigit() and string[-2].isdigit():
                 return QValidator.Invalid, pos
 
+        # space for after complete
         if string[-1] == ' ':
             if len(string) == 1:
                 return QValidator.Invalid, pos
@@ -128,6 +131,12 @@ class EditGroupValidator(DialogLineEditValidator):
                                   self.editor.findFreeComponentIndex(string[:-1])))
             return QValidator.Invalid, pos
 
+        # check for completely entered name
+        if not self.editor.unpackGroupIndexName(string):
+            self.sendError("Not complete")
+            return QValidator.Intermediate, pos
+
+        # check for name's busyness
         res = self.editor.findGroupByIndexName(string, self.group)
         if res:
             self.sendError("component with name '%s' already exists" % string)
@@ -138,7 +147,6 @@ class EditGroupValidator(DialogLineEditValidator):
 
 
     def fixup(self, string):
-        print("fixup = %s" % string)
         pass
 
 

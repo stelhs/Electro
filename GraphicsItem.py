@@ -18,6 +18,7 @@ LINE_TYPE = QGraphicsItem.UserType + 2
 GROUP_TYPE = QGraphicsItem.UserType + 3
 RECT_TYPE = QGraphicsItem.UserType + 4
 ELLIPSE_TYPE = QGraphicsItem.UserType + 5
+LINK_TYPE = QGraphicsItem.UserType + 6
 
 graphicsObjectsTypeNames = {
     NOT_DEFINED_TYPE: "not_defined",
@@ -25,6 +26,7 @@ graphicsObjectsTypeNames = {
     GROUP_TYPE: "group",
     RECT_TYPE: "rectangle",
     ELLIPSE_TYPE: "ellipse",
+    LINK_TYPE: "link",
 }
 
 
@@ -235,6 +237,10 @@ class GraphicsItem():
         return
 
 
+    def points(self):
+        return []
+
+
     def properties(self):
         properties = {}
         properties['id'] = self.id()
@@ -266,6 +272,16 @@ class GraphicsItem():
 
         print("%d base matched" % self.id())
         return True
+
+
+    def isNullSize(self):
+        points = self.points()
+        point1 = points[0]
+        points = points[1:]
+        for point2 in points:
+            if point2 == point1:
+                return True
+        return False
 
 
     def setScene(self, scene):

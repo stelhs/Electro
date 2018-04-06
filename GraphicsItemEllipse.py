@@ -148,9 +148,6 @@ class GraphicsItemEllipse(GraphicsItem, QGraphicsEllipseItem):
                                 delta.x(),
                                 delta.y()))
 
-        if not self.width() or not self.height():
-            self.scene().removeGraphicsItem(self)
-            return False
         self.markPointsShow()
         return True
 

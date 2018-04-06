@@ -122,9 +122,6 @@ class GraphicsItemRect(GraphicsItem, QGraphicsRectItem):
             self.setRect(QRectF(0, 0,
                                 self.width() + delta.x(),
                                 self.height() + delta.y()))
-
-            if not self.width() or not self.height():
-                self.scene().removeGraphicsItem(self)
             return True
 
         if self.selectedPoint == 'topRight':
@@ -134,9 +131,6 @@ class GraphicsItemRect(GraphicsItem, QGraphicsRectItem):
             self.setRect(QRectF(0, 0,
                                 self.width() - delta.x(),
                                 self.height() + delta.y()))
-
-            if not self.width() or not self.height():
-                self.scene().removeGraphicsItem(self)
             return True
 
         if self.selectedPoint == 'bottomLeft':
@@ -146,9 +140,6 @@ class GraphicsItemRect(GraphicsItem, QGraphicsRectItem):
             self.setRect(QRectF(0, 0,
                                 self.width() + delta.x(),
                                 self.height() - delta.y()))
-
-            if not self.width() or not self.height():
-                self.scene().removeGraphicsItem(self)
             return True
 
         if self.selectedPoint == 'bottomRight':
@@ -156,9 +147,6 @@ class GraphicsItemRect(GraphicsItem, QGraphicsRectItem):
             self.setRect(QRectF(0, 0,
                                 delta.x(),
                                 delta.y()))
-
-            if not self.width() or not self.height():
-                self.scene().removeGraphicsItem(self)
             return True
         return False
 
