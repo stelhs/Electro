@@ -3,19 +3,16 @@ from GraphicsItem import *
 
 
 class GraphicsItemLink(GraphicsItem, QGraphicsItem):
-    def __init__(self):
+    def __init__(self, pos):
         QGraphicsItem.__init__(self)
         GraphicsItem.__init__(self)
+        self.setPos(pos)
         self.setZValue(1)
         self._angle = 0
-        self._pen = QPen(Qt.black, 2, Qt.SolidLine, Qt.RoundCap)
-        self._linkId = 184
+        self._pen = self.normalPen
+        self._connection = None
         self._boundingRect = QRectF()
         self.graphicsItemsList.append(self)
-
-
-    def setLinkId(self, linkId):
-        self._linkId = linkId
 
 
     def type(self):
@@ -27,11 +24,9 @@ class GraphicsItemLink(GraphicsItem, QGraphicsItem):
         self.update()
 
 
-
-
     def paint(self, painter, style, widget):
         painter.setPen(self._pen)
-        circleDiameter = 8
+        circleDiameter = 6
 
         if self._angle == 0:
             lineX = MAX_GRID_SIZE
@@ -39,10 +34,11 @@ class GraphicsItemLink(GraphicsItem, QGraphicsItem):
             circleX = lineX
             circleY = -(circleDiameter / 2)
             rotate = 0
-            align = Qt.AlignRight
-            linkIdRect = QRectF(0, -MAX_GRID_SIZE,
-                                MAX_GRID_SIZE * 1.5, MAX_GRID_SIZE)
-
+            align = Qt.AlignCenter
+            connIdRect = QRectF(0, -MAX_GRID_SIZE,
+                                MAX_GRID_SIZE * 2, MAX_GRID_SIZE)
+            addrRect = QRectF(0, circleDiameter,
+                                MAX_GRID_SIZE * 2, MAX_GRID_SIZE)
 
         elif self._angle == 90:
             lineX = 0
@@ -50,9 +46,11 @@ class GraphicsItemLink(GraphicsItem, QGraphicsItem):
             circleX = -(circleDiameter / 2)
             circleY = lineY
             rotate = 90
-            align = Qt.AlignRight
-            linkIdRect = QRectF(0, -MAX_GRID_SIZE,
-                                MAX_GRID_SIZE * 1.5, MAX_GRID_SIZE)
+            align = Qt.AlignCenter
+            connIdRect = QRectF(0, -MAX_GRID_SIZE,
+                                MAX_GRID_SIZE * 2, MAX_GRID_SIZE)
+            addrRect = QRectF(0, circleDiameter,
+                                MAX_GRID_SIZE * 2, MAX_GRID_SIZE)
 
         elif self._angle == 180:
             lineX = -MAX_GRID_SIZE
@@ -60,9 +58,11 @@ class GraphicsItemLink(GraphicsItem, QGraphicsItem):
             circleX = lineX - circleDiameter
             circleY = -(circleDiameter / 2)
             rotate = 0
-            align = Qt.AlignLeft
-            linkIdRect = QRectF(-MAX_GRID_SIZE * 1.5, -MAX_GRID_SIZE,
-                                MAX_GRID_SIZE * 1.5, MAX_GRID_SIZE)
+            align = Qt.AlignCenter
+            connIdRect = QRectF(-MAX_GRID_SIZE * 2, -MAX_GRID_SIZE,
+                                MAX_GRID_SIZE * 2, MAX_GRID_SIZE)
+            addrRect = QRectF(-MAX_GRID_SIZE * 2, circleDiameter,
+                                MAX_GRID_SIZE * 2, MAX_GRID_SIZE)
 
         elif self._angle == 270:
             lineX = 0
@@ -70,19 +70,21 @@ class GraphicsItemLink(GraphicsItem, QGraphicsItem):
             circleX = -(circleDiameter / 2)
             circleY = lineY - circleDiameter
             rotate = -90
-            align = Qt.AlignRight
-            linkIdRect = QRectF(0, -MAX_GRID_SIZE,
-                                MAX_GRID_SIZE * 1.5, MAX_GRID_SIZE)
+            align = Qt.AlignCenter
+            connIdRect = QRectF(0, -MAX_GRID_SIZE,
+                                MAX_GRID_SIZE * 2, MAX_GRID_SIZE)
+            addrRect = QRectF(0, circleDiameter,
+                                MAX_GRID_SIZE * 2, MAX_GRID_SIZE)
 
         painter.drawLine(0, 0, lineX, lineY)
+        painter.setBrush(QBrush(self._pen.color()))
         painter.drawEllipse(circleX, circleY,
                             circleDiameter, circleDiameter)
 
         painter.rotate(rotate);
-        painter.drawText(linkIdRect, align, "%d" % self._linkId)
-        painter.drawText(QRectF(0, circleDiameter,
-                                MAX_GRID_SIZE * 1.5, MAX_GRID_SIZE),
-                                align, "12/A7")
+        if self.connection():
+            painter.drawText(connIdRect, align, "%d" % self.connection().id())
+            painter.drawText(addrRect, align, self.addressRemote())
         painter.rotate(-rotate);
 
 
@@ -120,7 +122,6 @@ class GraphicsItemLink(GraphicsItem, QGraphicsItem):
 
     def properties(self):
         properties = GraphicsItem.properties(self)
-        properties['linkId'] = 1  # TODO !!!!
         return properties
 
 
@@ -128,6 +129,7 @@ class GraphicsItemLink(GraphicsItem, QGraphicsItem):
         properties = copy.deepcopy(properties)
         if typeByName(properties['type']) != LINK_TYPE:
             return
+        GraphicsItem.setProperties(self, properties)
 
 
     def rotate(self, center, angle):
@@ -137,11 +139,67 @@ class GraphicsItemLink(GraphicsItem, QGraphicsItem):
         self.update()
 
 
+    def setConnection(self, conn):
+        self._connection = conn
+        self.update()
+
+
+    def connection(self):
+        return self._connection
+
+
+    def addressRemote(self):
+        if not self._connection:
+            return
+        otherLinkPoint = None
+        for linkPoint in self._connection.linkPoints():
+            if linkPoint != self:
+                otherLinkPoint = linkPoint
+        scene = otherLinkPoint.scene()
+        quadrant = scene.quadrantByPos(otherLinkPoint.pos())
+        return "%d/%s" % (scene.num(), quadrant)
+
+
+    def setPos(self, pos):
+        QGraphicsItem.setPos(self, pos)
+        self.update()
+
+
     def __str__(self):
         str = GraphicsItem.__str__(self)
-        str += ", link with id: %d" % properties['linkId']
+        if self.deltaCenter:
+            str += " | deltaCenter %d:%d" % (self.deltaCenter.x(),
+                                             self.deltaCenter.y())
 
         return str
+
+
+
+connection_last_id = 0
+class Connection():
+    def __init__(self, linkPoint1, linkPoint2):
+        global connection_last_id
+        self._linkPoints = []
+        self._linkPoints.append(linkPoint1)
+        self._linkPoints.append(linkPoint2)
+        connection_last_id += 1
+        self._id = connection_last_id
+        for linkPoint in self._linkPoints:
+            linkPoint.setConnection(self)
+
+
+    def id(self):
+        return self._id
+
+
+    def linkPoints(self):
+        return self._linkPoints
+
+
+    def remove(self):
+        for linkPoint in self._linkPoints:
+            linkPoint.setConnection(None)
+
 
 
 

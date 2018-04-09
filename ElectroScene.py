@@ -20,11 +20,13 @@ class ElectroScene(QGraphicsScene):
 
     def __init__(self, editor):
         QGraphicsScene.__init__(self)
+        self._num = 0  # Scene number
         self.editor = editor
         self.graphicsItemsList = []
         self.drawingLine = None
         self.drawingRect = None
         self.drawingEllipse = None
+        self.insertedLinkPoint = None
         self.multiSelected = False  # Shift key is pressed
         self.selectingByMouse = None  # select rectangular area for selecting items
         self.movingItem = False  # Moving selected items mode
@@ -71,6 +73,15 @@ class ElectroScene(QGraphicsScene):
                                    pix(self.sceneRectSize.y()))
 
 
+
+    def setNum(self, num):
+        self._num = num
+
+
+    def num(self):
+        return self._num
+
+
     def setGrid(self, gridSize):
         self.gridSize = gridSize
         self.editor.setStatusGridSize(gridSize)
@@ -79,26 +90,24 @@ class ElectroScene(QGraphicsScene):
 
     def changeGridSize(self):
         gridSize = self.gridSize
-        print("1 gridSize = %d" % gridSize)
         gridSize = gridSize / 2
-        print("2 gridSize = %d" % gridSize)
         if gridSize < self.minGridSize:
             gridSize = MAX_GRID_SIZE
-        print("3 gridSize = %d" % gridSize)
         self.setGrid(gridSize)
+
+
+    def quadrantByPos(self, pos):
+        h = (self.sceneRectSize.x() / self.horizontalFieldsCount) * self.minGridSize
+        v = (self.sceneRectSize.y() / self.verticalFieldsCount) * self.minGridSize
+        x = int(pos.x() / h) + 1
+        y = int(pos.y() / v)
+        return "%s%d" % (str(unichr(65 + y)), x)
 
 
     def drawBackground(self, qp, viewRect):
 #        print("drawBackground scene")
-
-        letters = ['A', 'B', 'C', 'D',
-                   'E', 'F', 'G', 'H',
-                   'I', 'J', 'K', 'L']
-
-
         def pix(val):
             return val * self.minGridSize
-
 
         # draw grid in viewRect
         p = self.mapToGrid(viewRect.topLeft())
@@ -185,7 +194,7 @@ class ElectroScene(QGraphicsScene):
                           pix(self.verticalFieldsWidth),
                           pix(verticalFieldSize))
             qp.drawRect(rect)
-            qp.drawText(rect, Qt.AlignCenter, "%s" % letters[i])
+            qp.drawText(rect, Qt.AlignCenter, "%s" % str(unichr(65 + i)))
 
 
     def mapToGrid(self, arg, gridSize=None):
@@ -282,12 +291,14 @@ class ElectroScene(QGraphicsScene):
 
 
 
+
     def mousePressEvent(self, ev):
         if not self.inGraphicPaper(ev.scenePos()):
             return
 
         if ev.button() == 1:
             if self.mode == 'select':
+                QGraphicsScene.mousePressEvent(self, ev)
                 if self.mousePressEventMovePoint(ev):
                     return
 
@@ -320,6 +331,11 @@ class ElectroScene(QGraphicsScene):
                 self.mode = 'select'
                 return
 
+            if self.mode == 'pastLinkPoint':
+                self.itemRemoveFromSelection(self.insertedLinkPoint)
+                self.setMode('pastLinkPoint')
+
+
         if ev.button() == 2:
             if self.mode == 'select':
                 self.resetSelectionItems()
@@ -349,6 +365,9 @@ class ElectroScene(QGraphicsScene):
                 self.mode = 'select'
                 self.history.undo()
                 return
+
+            if self.mode == 'pastLinkPoint':
+                self.setMode('select')
 
         QGraphicsScene.mousePressEvent(self, ev)
 
@@ -503,12 +522,17 @@ class ElectroScene(QGraphicsScene):
             return
 
         if self.mode == 'pasteFromClipboard':
-            self.moveSelectedItems(self.mapToGrid(ev.scenePos()))
+            self.moveSelectedItems(point)
             return
 
         if self.mode == 'moveSelectedItems':
-            self.moveSelectedItems(self.mapToGrid(ev.scenePos()))
+            self.moveSelectedItems(point)
             return
+
+        if self.mode == 'pastLinkPoint':
+            self.moveSelectedItems(self.mapToGrid(ev.scenePos(), MAX_GRID_SIZE))
+            return
+
 
 
     def mouseReleaseEvent(self, ev):
@@ -610,7 +634,6 @@ class ElectroScene(QGraphicsScene):
             if self.mode == 'select':
                 self.changeSelectedLinesType()
             return
-
 
         if key == 16777219:  # Backspace
             if self.mode == 'useTool' and (
@@ -790,13 +813,23 @@ class ElectroScene(QGraphicsScene):
             self.removeGraphicsItems(self.selectedGraphicsItems())
 
         if mode == "select":
-            self.mode = 'select'
             self.hideCursor()
             self.resetSelectionItems()
             self.stopLineDrawing()
+            if self.mode == 'pastLinkPoint':
+                self.removeGraphicsItem(self.insertedLinkPoint)
+                self.insertedLinkPoint = None
 
         if mode == "useTool":
             self.drawCursor(self.mapToGrid(self.mousePos))
+
+        if mode == "pastLinkPoint":
+            pos = self.mapToGrid(self.mousePos, MAX_GRID_SIZE)
+            item = GraphicsItemLink(pos)
+            item.setCenter(pos)
+            self.addGraphicsItem(item)
+            self.itemAddToSelection(item, True)
+            self.insertedLinkPoint = item
 
         self.mode = mode
 

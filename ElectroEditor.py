@@ -33,6 +33,8 @@ class PageWidget(QWidget):
 
 
     def setNum(self, num):
+        scene = self.scene()
+        scene.setNum(num)
         self.pageNum = num
 
 
@@ -138,6 +140,7 @@ class Component(QListWidgetItem):
 
 
 
+
 class ElectroEditor(QMainWindow):
 
 
@@ -147,6 +150,7 @@ class ElectroEditor(QMainWindow):
         self.keyCTRL = False
         self.pages = []
         self.componentList = []
+        self.connectionsList = []
 
         self.setWindowTitle("Electro editor")
 
@@ -482,6 +486,45 @@ class ElectroEditor(QMainWindow):
             self.setTool('ellipse')
             return
 
+        # insert linkPoint
+        if key == 76:  # l
+            self.scene().setMode('pastLinkPoint')
+            return
+
+        # create connection
+        if key == 67:  # C
+            def dialogOnReturn(str):
+                linkPoints = []
+                w = str.split()
+                for i in w:
+                    point = self.itemById(int(i))
+                    if not point:
+                        self.showStatusBarErrorMessage("LinkPoint id:%s not found" % i)
+                        return
+                    linkPoints.append(point)
+
+                if len(linkPoints) != 2:
+                    self.showStatusBarErrorMessage("only two LinkPoints are allowed")
+                    return
+
+                for linkPoint in linkPoints:
+                    conn = self.connectionByLinkPoint(linkPoint)
+                    if conn:
+                        self.removeConnection(conn)
+
+                self.connectionCreate(linkPoints[0], linkPoints[1])
+
+            defaultValue = ""
+            linkPoints = self.selectedGraphicsItems(LINK_TYPE)
+            if len(linkPoints) == 2:
+                for linkPoint in linkPoints:
+                    defaultValue += "%d " % linkPoint.id()
+            validator = ConnectinValidator(self)
+            self.dialogLineEditShow("Enter two LinkPoints IDs space separated:",
+                                    dialogOnReturn,
+                                    defaultValue=defaultValue,
+                                    validator=validator)
+            return
 
         if key == 16777249:  # CTRL
             self.keyCTRL = True
@@ -601,6 +644,11 @@ class ElectroEditor(QMainWindow):
                                     validator=validator)
             return
 
+        # reset selection on all scenes
+        if self.keyCTRL and key == 67:  # CTRL+C
+            self.resetSelectionItems()
+            return
+
         if (key == 16777234 or key == 16777236 or
             key == 16777235 or key == 16777237):
             scene.keyPressEvent(event)
@@ -661,7 +709,11 @@ class ElectroEditor(QMainWindow):
 
 
     def setStatusCursorCoordinates(self, point):
-        self.currentCursorCoordinatesLabel.setText("x: %d, y: %d" % (point.x(), point.y()))
+        quadrant = self.scene().quadrantByPos(point)
+        self.currentCursorCoordinatesLabel.setText("%s | x: %d, y: %d" %
+                                                   (quadrant,
+                                                    point.x(),
+                                                    point.y()))
 
 
     def setStatusGraphicsItemInfo(self, item=None):
@@ -782,5 +834,52 @@ class ElectroEditor(QMainWindow):
         return supposedIndex
 
 
+    def connectionCreate(self, linkPoint1, linkPoint2):
+        conn = Connection(linkPoint1, linkPoint2)
+        self.connectionsList.append(conn)
 
+
+    def removeConnection(self, conn):
+        conn.remove()
+        self.connectionsList.remove(conn)
+
+
+    def itemById(self, id):
+        for page in self.pages:
+            scene = page.scene()
+            item = scene.itemById(id)
+            if item:
+                return item
+        return None
+
+
+    def connectionByLinkPoint(self, linkPoint):
+        for conn in self.connectionsList:
+            for point in conn.linkPoints():
+                if point.id() == linkPoint.id():
+                    return conn
+        return None
+
+
+    def selectedGraphicsItems(self, type=None):
+        items = []
+        for page in self.pages:
+            scene = page.scene()
+            items += scene.selectedGraphicsItems(type)
+        return items
+
+
+    def resetSelectionItems(self):
+        for page in self.pages:
+            scene = page.scene()
+            scene.resetSelectionItems()
+
+
+    def itemsAddToSelection(self, items):
+        for item in items:
+            for page in self.pages:
+                scene = page.scene()
+                if scene != item.scene():
+                    continue
+                scene.itemAddToSelection(item)
 
