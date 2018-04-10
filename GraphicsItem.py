@@ -19,6 +19,7 @@ GROUP_TYPE = QGraphicsItem.UserType + 3
 RECT_TYPE = QGraphicsItem.UserType + 4
 ELLIPSE_TYPE = QGraphicsItem.UserType + 5
 LINK_TYPE = QGraphicsItem.UserType + 6
+TEXT_TYPE = QGraphicsItem.UserType + 7
 
 graphicsObjectsTypeNames = {
     NOT_DEFINED_TYPE: "not_defined",
@@ -27,6 +28,7 @@ graphicsObjectsTypeNames = {
     RECT_TYPE: "rectangle",
     ELLIPSE_TYPE: "ellipse",
     LINK_TYPE: "link",
+    TEXT_TYPE: "text"
 }
 
 
@@ -63,6 +65,7 @@ def createGraphicsObjectByProperties(ogjectProperties):
     import GraphicsItemLine
     import GraphicsItemRect
     import GraphicsItemEllipse
+    import GraphicsItemText
     import GraphicsItemGroup
 
     item = None
@@ -80,6 +83,10 @@ def createGraphicsObjectByProperties(ogjectProperties):
 
     if typeByName(ogjectProperties['type']) == ELLIPSE_TYPE:
         item = GraphicsItemEllipse.GraphicsItemEllipse()
+        item.setProperties(ogjectProperties)
+
+    if typeByName(ogjectProperties['type']) == TEXT_TYPE:
+        item = GraphicsItemText.GraphicsItemText()
         item.setProperties(ogjectProperties)
 
     return item

@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import rlcompleter, readline
 import sys
 from PyQt4.QtGui import *
@@ -10,6 +12,7 @@ app = QApplication(sys.argv)
 
 electro = ElectroEditor(app)
 electro.show()
+
 # view.setDragMode(QGraphicsView.RubberBandDrag)
 
 #        line.setFlag(QGraphicsItem.ItemIsMovable)

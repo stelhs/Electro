@@ -6,141 +6,6 @@ import os, glob, sys, pprint, re
 
 
 
-def editorPath():
-    return os.path.dirname(os.path.realpath(sys.argv[0]))
-
-
-def componentsPath():
-    return "%s/components" % editorPath()
-
-
-page_last_id = 0
-
-class PageWidget(QWidget):
-
-
-    def __init__(self, editor, name):
-        QWidget.__init__(self)
-        global page_last_id
-        self._name = name
-        self._sceneView = ElectroSceneView(editor, ElectroScene(editor))
-        layout = QVBoxLayout(self)
-        layout.addWidget(self._sceneView)
-        self.editor = editor
-        self.setLayout(layout)
-        page_last_id += 1
-        self._id = page_last_id
-
-
-    def setNum(self, num):
-        scene = self.scene()
-        scene.setNum(num)
-        self.pageNum = num
-
-
-    def id(self, num):
-        return self._id
-
-
-    def num(self):
-        return self.pageNum
-
-
-    def name(self):
-        return self._name
-
-
-    def setName(self, name):
-        self._name = name
-
-
-    def scene(self):
-        return self._sceneView.scene()
-
-
-    def sceneView(self):
-        return self._sceneView
-
-
-class Component(QListWidgetItem):
-    def __init__(self, name, group=None):
-        QListWidgetItem.__init__(self)
-        self._name = name
-        self._groupProperties = None
-        self._image = None
-        if group:
-            self._groupProperties = group.properties()
-        pass
-
-
-    def load(self):
-        f = open("%s/%s.ec" % (componentsPath(), self._name), "r")
-        content = f.read()
-        self._groupProperties = json.loads(content)
-
-        f.close()
-
-        self._image = QImage()
-        self._image.load("%s/%s.png" % (componentsPath(), self._name))
-
-        pixMap = QPixmap.fromImage(self.image())
-        self.setData(Qt.DecorationRole, pixMap)
-        return True
-
-
-    def save(self):
-        group = self.group()
-        rect = mapToGrid(group.boundingRect(), MAX_GRID_SIZE)
-        tempScene = QGraphicsScene()
-        tempScene.setSceneRect(rect)
-        group.setIndex(0)
-        group.setPos(rect.topLeft())
-        group.setScene(tempScene)
-
-        self._image = QImage(rect.size().toSize(), QImage.Format_ARGB32)
-        self._image.fill(Qt.transparent)
-        painter = QPainter(self._image)
-        tempScene.render(painter)
-        painter.end()
-
-        self._image = self._image.scaledToWidth(100, Qt.SmoothTransformation)
-        self._image.save("%s/%s.png" % (componentsPath(), self._name))
-
-        jsonProp = json.dumps(self._groupProperties)
-        f = open("%s/%s.ec" % (componentsPath(), self._name), "w")
-        f.write(jsonProp)
-        f.close()
-        pass
-
-
-    def removeFiles(self):
-        os.remove("%s/%s.ec" % (componentsPath(), self._name))
-        os.remove("%s/%s.png" % (componentsPath(), self._name))
-
-
-    def group(self):
-        if not self._groupProperties:
-            return False
-        group = createGraphicsObjectByProperties(self._groupProperties)
-        return group
-
-
-    def image(self):
-        return self._image
-
-
-    def name(self):
-        return self._name
-
-
-    def prefixName(self):
-        if not 'prefixName' in self._groupProperties:
-            return ""
-        return self._groupProperties['prefixName']
-
-
-
-
 class ElectroEditor(QMainWindow):
 
 
@@ -202,7 +67,7 @@ class ElectroEditor(QMainWindow):
         def componentCliced(component):
             self.showComponentInfo(component)
             self.scene().pastComponent(component.group())
-            self.sceneView().setFocus(True)
+            self.componentListWidget().setFocus(True)
         self.componentListWidget.itemClicked.connect(componentCliced)
 
         # create component properties info
@@ -466,6 +331,12 @@ class ElectroEditor(QMainWindow):
         if key == 16777216:  # ESC
             self.dialogLineEditHide()
             self.setTool(None)
+            self.setFocus()
+            self.resetSelectionItems()
+            return
+
+        if scene.mode == 'textEdit':
+            scene.keyPressEvent(event)
             return
 
         if key == 49:  # 1
@@ -486,13 +357,17 @@ class ElectroEditor(QMainWindow):
             self.setTool('ellipse')
             return
 
+        if key == 53:  # 5
+            self.setTool('text')
+            return
+
         # insert linkPoint
         if key == 76:  # l
             self.scene().setMode('pastLinkPoint')
             return
 
         # create connection
-        if key == 67:  # C
+        if not self.keyCTRL and key == 67:  # C
             def dialogOnReturn(str):
                 linkPoints = []
                 w = str.split()
@@ -642,11 +517,6 @@ class ElectroEditor(QMainWindow):
                                     dialogOnRemovePage,
                                     "no", selectAll=True,
                                     validator=validator)
-            return
-
-        # reset selection on all scenes
-        if self.keyCTRL and key == 67:  # CTRL+C
-            self.resetSelectionItems()
             return
 
         if (key == 16777234 or key == 16777236 or
@@ -882,4 +752,143 @@ class ElectroEditor(QMainWindow):
                 if scene != item.scene():
                     continue
                 scene.itemAddToSelection(item)
+
+
+
+
+
+
+
+def editorPath():
+    return os.path.dirname(os.path.realpath(sys.argv[0]))
+
+
+def componentsPath():
+    return "%s/components" % editorPath()
+
+
+page_last_id = 0
+
+class PageWidget(QWidget):
+
+
+    def __init__(self, editor, name):
+        QWidget.__init__(self)
+        global page_last_id
+        self._name = name
+        self._sceneView = ElectroSceneView(editor, ElectroScene(editor))
+        layout = QVBoxLayout(self)
+        layout.addWidget(self._sceneView)
+        self.editor = editor
+        self.setLayout(layout)
+        page_last_id += 1
+        self._id = page_last_id
+
+
+    def setNum(self, num):
+        scene = self.scene()
+        scene.setNum(num)
+        self.pageNum = num
+
+
+    def id(self, num):
+        return self._id
+
+
+    def num(self):
+        return self.pageNum
+
+
+    def name(self):
+        return self._name
+
+
+    def setName(self, name):
+        self._name = name
+
+
+    def scene(self):
+        return self._sceneView.scene()
+
+
+    def sceneView(self):
+        return self._sceneView
+
+
+class Component(QListWidgetItem):
+    def __init__(self, name, group=None):
+        QListWidgetItem.__init__(self)
+        self._name = name
+        self._groupProperties = None
+        self._image = None
+        if group:
+            self._groupProperties = group.properties()
+        pass
+
+
+    def load(self):
+        f = open("%s/%s.ec" % (componentsPath(), self._name), "r")
+        content = f.read()
+        self._groupProperties = json.loads(content)
+
+        f.close()
+
+        self._image = QImage()
+        self._image.load("%s/%s.png" % (componentsPath(), self._name))
+
+        pixMap = QPixmap.fromImage(self.image())
+        self.setData(Qt.DecorationRole, pixMap)
+        return True
+
+
+    def save(self):
+        group = self.group()
+        rect = mapToGrid(group.boundingRect(), MAX_GRID_SIZE)
+        tempScene = QGraphicsScene()
+        tempScene.setSceneRect(rect)
+        group.setIndex(0)
+        group.setPos(rect.topLeft())
+        group.setScene(tempScene)
+
+        self._image = QImage(rect.size().toSize(), QImage.Format_ARGB32)
+        self._image.fill(Qt.transparent)
+        painter = QPainter(self._image)
+        tempScene.render(painter)
+        painter.end()
+
+        self._image = self._image.scaledToWidth(100, Qt.SmoothTransformation)
+        self._image.save("%s/%s.png" % (componentsPath(), self._name))
+
+        jsonProp = json.dumps(self._groupProperties)
+        f = open("%s/%s.ec" % (componentsPath(), self._name), "w")
+        f.write(jsonProp)
+        f.close()
+        pass
+
+
+    def removeFiles(self):
+        os.remove("%s/%s.ec" % (componentsPath(), self._name))
+        os.remove("%s/%s.png" % (componentsPath(), self._name))
+
+
+    def group(self):
+        if not self._groupProperties:
+            return False
+        group = createGraphicsObjectByProperties(self._groupProperties)
+        return group
+
+
+    def image(self):
+        return self._image
+
+
+    def name(self):
+        return self._name
+
+
+    def prefixName(self):
+        if not 'prefixName' in self._groupProperties:
+            return ""
+        return self._groupProperties['prefixName']
+
 

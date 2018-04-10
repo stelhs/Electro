@@ -2,6 +2,7 @@ from GraphicsItem import *
 from GraphicsItemLine import *
 from GraphicsItemRect import *
 from GraphicsItemEllipse import *
+from GraphicsItemText import *
 
 
 
@@ -228,23 +229,21 @@ class GraphicsItemGroup(GraphicsItem):
 
                 if typeByName(itemProperties['type']) == LINE_TYPE:
                     item = GraphicsItemLine()
-                    item.setProperties(itemProperties)
-                    newItems.append(item)
 
                 if typeByName(itemProperties['type']) == RECT_TYPE:
                     item = GraphicsItemRect()
-                    item.setProperties(itemProperties)
-                    newItems.append(item)
 
                 if typeByName(itemProperties['type']) == ELLIPSE_TYPE:
                     item = GraphicsItemEllipse()
-                    item.setProperties(itemProperties)
-                    newItems.append(item)
+
+                if typeByName(itemProperties['type']) == TEXT_TYPE:
+                    item = GraphicsItemText()
 
                 if typeByName(itemProperties['type']) == GROUP_TYPE:
                     item = GraphicsItemGroup()
-                    item.setProperties(itemProperties)
-                    newItems.append(item)
+
+                item.setProperties(itemProperties)
+                newItems.append(item)
 
         self.addItems(newItems)
 

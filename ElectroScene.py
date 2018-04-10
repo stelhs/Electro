@@ -9,6 +9,7 @@ from GraphicsItemLine import *
 from GraphicsItemRect import *
 from GraphicsItemGroup import *
 from GraphicsItemLink import *
+from GraphicsItemText import *
 
 
 
@@ -26,6 +27,7 @@ class ElectroScene(QGraphicsScene):
         self.drawingLine = None
         self.drawingRect = None
         self.drawingEllipse = None
+        self.drawingText = None
         self.insertedLinkPoint = None
         self.multiSelected = False  # Shift key is pressed
         self.selectingByMouse = None  # select rectangular area for selecting items
@@ -289,6 +291,11 @@ class ElectroScene(QGraphicsScene):
                                               p, "ellipse")
             return
 
+        if self.currentTool() == 'text':
+            self.drawingText = RectDrawing(self, QPen(Qt.black, 2, Qt.SolidLine),
+                                           p, "rectangle")
+            return
+
 
 
 
@@ -297,7 +304,7 @@ class ElectroScene(QGraphicsScene):
             return
 
         if ev.button() == 1:
-            if self.mode == 'select':
+            if self.mode == 'select' or self.mode == 'textEdit':
                 QGraphicsScene.mousePressEvent(self, ev)
                 if self.mousePressEventMovePoint(ev):
                     return
@@ -433,6 +440,9 @@ class ElectroScene(QGraphicsScene):
         if not item:
             return
 
+        if item.type() == TEXT_TYPE:
+            item.editEnable()
+
         self.selectedCenter = self.mapToGrid(ev.scenePos())
         for item in self.selectedGraphicsItems():
             item.setCenter(self.selectedCenter)
@@ -494,6 +504,11 @@ class ElectroScene(QGraphicsScene):
                 return
             self.drawingEllipse.setEndPoint(point)
 
+        if self.currentTool() == 'text':
+            if not self.drawingText:
+                return
+            self.drawingText.setEndPoint(point)
+
 
     def mouseMoveEvent(self, ev):
         if not self.inGraphicPaper(ev.scenePos()):
@@ -504,7 +519,7 @@ class ElectroScene(QGraphicsScene):
         point = self.mapToGrid(ev.scenePos())
         self.editor.setStatusCursorCoordinates(point)
 
-        if self.mode == 'select':
+        if self.mode == 'select' or self.mode == 'textEdit':
             self.mouseMoveEventDisplayPoints(ev)
 
             if self.mouseMoveEventMoveItem(ev):
@@ -523,6 +538,7 @@ class ElectroScene(QGraphicsScene):
 
         if self.mode == 'pasteFromClipboard':
             self.moveSelectedItems(point)
+            self.calculateSelectionCenter()
             return
 
         if self.mode == 'moveSelectedItems':
@@ -569,6 +585,24 @@ class ElectroScene(QGraphicsScene):
                 self.addGraphicsItem(ellipse)
                 self.history.addItems([ellipse])
                 self.drawingEllipse = None
+
+            if self.drawingText:
+                print("mouseReleaseEvent drawingText")
+                rect = self.drawingText.rect()
+                if not rect:
+                    self.drawingText = None
+                    return
+                text = GraphicsItemText(rect.topLeft(),
+                                        QRectF(0, 0, rect.width(), rect.height()))
+                if text.isNullSize():
+                    return
+                self.drawingText.remove()
+                self.addGraphicsItem(text)
+                self.history.addItems([text])
+                self.drawingText = None
+                text.editEnable()
+                text.setFocus()
+                self.setMode('textEdit')
             return
 
         self.calculateSelectionCenter()
@@ -602,6 +636,10 @@ class ElectroScene(QGraphicsScene):
 
     def keyPressEvent(self, event):
         key = event.key()
+        if self.mode == 'textEdit':
+            QGraphicsScene.keyPressEvent(self, event)
+            return
+
         if key == 16777223:  # DEL
             items = self.selectedGraphicsItems()
             self.history.removeItems(items)
@@ -649,7 +687,7 @@ class ElectroScene(QGraphicsScene):
 
         if key == 32:  # Space
 #            if self.mode == 'pasteFromClipboard':
-            self.calculateSelectionCenter()
+#            self.calculateSelectionCenter()
 
             if self.mode != 'pasteFromClipboard':
                 self.history.changeItemsStart(self.selectedGraphicsItems())
@@ -830,6 +868,10 @@ class ElectroScene(QGraphicsScene):
             self.addGraphicsItem(item)
             self.itemAddToSelection(item, True)
             self.insertedLinkPoint = item
+
+        if mode == "textEdit":
+            if self.mode != 'select':
+                self.hideCursor()
 
         self.mode = mode
 
