@@ -65,9 +65,12 @@ class ElectroEditor(QMainWindow):
         self.componentListWidget = QListWidget()
         leftPanellayout.addWidget(self.componentListWidget)
         def componentCliced(component):
+            self.scene().setGrid(MAX_GRID_SIZE)
+            self.scene().setMode('select')
             self.showComponentInfo(component)
             self.scene().pastComponent(component.group())
-            self.componentListWidget().setFocus(True)
+            self.sceneView().setFocus()
+            # self.componentListWidget.setFocus(True)
         self.componentListWidget.itemClicked.connect(componentCliced)
 
         # create component properties info
@@ -682,13 +685,14 @@ class ElectroEditor(QMainWindow):
         listIndexes = []
         # get index list by all components
         for page in self.pages:
-            groups = page.scene().graphicsItems(GROUP_TYPE)
+            groups = page.scene().allGraphicsItems(GROUP_TYPE)
             for group in groups:
                 if not group.prefixName():
                     continue
                 if group.prefixName() != prefixName:
                      continue
-                listIndexes.append(group.index())
+                if group.index():
+                    listIndexes.append(group.index())
 
         if not len(listIndexes):
             return 1
@@ -705,13 +709,27 @@ class ElectroEditor(QMainWindow):
 
 
     def connectionCreate(self, linkPoint1, linkPoint2):
-        conn = Connection(linkPoint1, linkPoint2)
+        conn = Connection(self, linkPoint1, linkPoint2)
         self.connectionsList.append(conn)
 
 
     def removeConnection(self, conn):
         conn.remove()
-        self.connectionsList.remove(conn)
+
+
+    def displayItem(self, item):
+        scene = item.scene()
+        view = scene.views()[0]
+        self.tabWidget.setCurrentIndex(scene.num() - 1)
+        view.setZoom(200, item.center())
+
+
+    def displayRemoteLinkPoint(self, linkPoint):
+        remoteLinkPoint = linkPoint.remoteLinkPoint()
+        if not remoteLinkPoint:
+            return False
+        self.displayItem(remoteLinkPoint)
+        return True
 
 
     def itemById(self, id):

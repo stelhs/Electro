@@ -67,6 +67,19 @@ class ElectroSceneView(QGraphicsView):
         self.editor.setStatusScale(self.scalePercent)
 
 
+    def setZoom(self, percent, center=None):
+        self.scalePercent = percent
+        self.editor.setStatusScale(self.scalePercent)
+        self.resetMatrix()
+        if percent == 100:
+            return
+        zoomFactor = percent / 100
+        self.scale(zoomFactor, zoomFactor)
+        if not center:
+            return
+        self.centerOn(center)
+
+
     def wheelEvent(self, event):
         if event.delta() > 0:
             self.zoomIn(event.pos())

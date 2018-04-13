@@ -10,7 +10,7 @@ class GraphicsItemText(GraphicsItem, QGraphicsTextItem):
         GraphicsItem.__init__(self)
         self._angle = 0
         self._rightPoint = None
-        self._pos = None
+        self._pos = QPointF(0, 0)
         if pos:
             self.setPos(pos)
         if rect:
@@ -24,11 +24,19 @@ class GraphicsItemText(GraphicsItem, QGraphicsTextItem):
         self.highLightRect.setPen(QPen(self.highLightPen.color(), 1,
                                   Qt.SolidLine, Qt.RoundCap))
 
-
-
-
     def type(self):
         return TEXT_TYPE
+
+
+    def setAlignment(self, alignment):
+        self._alignment = alignment
+        format = QTextBlockFormat()
+        format.setAlignment(alignment)
+        cursor = self.textCursor()
+        cursor.select(QTextCursor.Document)
+        cursor.mergeBlockFormat(format)
+        cursor.clearSelection()
+        self.setTextCursor(cursor)
 
 
     def editEnable(self):
@@ -47,14 +55,17 @@ class GraphicsItemText(GraphicsItem, QGraphicsTextItem):
 
 
     def focusInEvent(self, event):
-        self.scene().setMode('textEdit')
+        print("focusInEvent")
+        scene = self.scene()
+        scene.itemTextfocusInEvent(self)
         QGraphicsTextItem.focusInEvent(self, event)
 
 
     def focusOutEvent(self, event):
+        print("focusOutEvent")
+        scene = self.scene()
+        scene.itemTextfocusOutEvent(self)
         QGraphicsTextItem.focusOutEvent(self, event)
-        self.scene().setMode('select')
-        self.editDisable()
 
 
     def setPen(self, pen):
@@ -196,12 +207,20 @@ class GraphicsItemText(GraphicsItem, QGraphicsTextItem):
         return False
 
 
+    def text(self):
+        return unicode(self.toPlainText())
+
+
+    def setText(self, text):
+        self.setPlainText(text)
+
+
     def properties(self):
         properties = GraphicsItem.properties(self)
         properties['rectSize'] = {"w": self.width(),
                                   "h": self.height()}
         properties['angle'] = self._angle % 180
-        properties['text'] = unicode(self.toPlainText())
+        properties['text'] = self.text()
         return properties
 
 
@@ -215,7 +234,7 @@ class GraphicsItemText(GraphicsItem, QGraphicsTextItem):
         self.setRect(QRectF(0, 0,
                             properties['rectSize']['w'],
                             properties['rectSize']['h']))
-        self.setPlainText(properties['text'])
+        self.setText(properties['text'])
         QGraphicsTextItem.setRotation(self, self._angle % 180)
 
 
@@ -240,6 +259,15 @@ class GraphicsItemText(GraphicsItem, QGraphicsTextItem):
 
         QGraphicsTextItem.setRotation(self, self._angle % 180)
         self.markPointsShow()
+
+
+    def resetRotation(self):
+        if self._angle == 0:
+            return
+        pos = self.pos()
+        while self._angle != 0:
+            self.rotate(pos, 90)
+        self.setPos(pos)
 
 
     def __str__(self):

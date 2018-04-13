@@ -67,6 +67,7 @@ def createGraphicsObjectByProperties(ogjectProperties):
     import GraphicsItemEllipse
     import GraphicsItemText
     import GraphicsItemGroup
+    import GraphicsItemLink
 
     item = None
     if typeByName(ogjectProperties['type']) == GROUP_TYPE:
@@ -87,6 +88,10 @@ def createGraphicsObjectByProperties(ogjectProperties):
 
     if typeByName(ogjectProperties['type']) == TEXT_TYPE:
         item = GraphicsItemText.GraphicsItemText()
+        item.setProperties(ogjectProperties)
+
+    if typeByName(ogjectProperties['type']) == LINK_TYPE:
+        item = GraphicsItemLink.GraphicsItemLink()
         item.setProperties(ogjectProperties)
 
     return item
@@ -142,6 +147,10 @@ class GraphicsItem():
         return self._name
 
 
+    def resetPen(self):
+        self.setPen(self.normalPen)
+
+
     def setItemsPen(self, pen):
         if not len(self.graphicsItemsList):
             return
@@ -149,12 +158,19 @@ class GraphicsItem():
             if item.type() == GROUP_TYPE:
                 item.setItemsPen(pen)
                 continue
-            item.setPen(pen)
+            if not pen:
+                item.resetPen()
+            else:
+                item.setPen(pen)
 
 
     def setColor(self, color):
         self.normalPen.setColor(color)
         self.setItemsPen(self.normalPen)
+
+
+    def resetColor(self):
+        self.setItemsPen(None)
 
 
     def color(self):
@@ -187,13 +203,21 @@ class GraphicsItem():
 
     def highlight(self):
         self.setItemsPen(self.highLightPen)
+        for item in self.graphicsItemsList:
+            if item.type() == TEXT_TYPE:
+                item.highlight()
+                continue
 
 
     def unHighlight(self):
         if self.isSelected():
             self.setItemsPen(self.selectedPen)
         else:
-            self.setItemsPen(self.normalPen)
+            self.resetColor()
+        for item in self.graphicsItemsList:
+            if item.type() == TEXT_TYPE:
+                item.unHighlight()
+                continue
 
 
     def setCenter(self, point):
@@ -248,6 +272,25 @@ class GraphicsItem():
         return []
 
 
+    def center(self):
+        rect = self.mapToScene(self.boundingRect()).boundingRect()
+        return rect.center()
+
+
+    def mapToScene(self, arg):
+        argType = arg.__class__.__name__
+        if argType == 'QRectF':
+            rect = arg
+            return QPolygonF([rect.topLeft() + self.pos(),
+                              rect.topRight() + self.pos(),
+                              rect.bottomRight() + self.pos(),
+                              rect.bottomLeft() + self.pos()])
+
+        if argType == 'QPointF':
+            point = arg
+            return point + self.pos()
+
+
     def properties(self):
         properties = {}
         properties['id'] = self.id()
@@ -276,8 +319,6 @@ class GraphicsItem():
             if not name in properties or properties[name] != value:
                 print("%d base not matched" % self.id())
                 return False
-
-        print("%d base matched" % self.id())
         return True
 
 

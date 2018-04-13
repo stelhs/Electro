@@ -7,6 +7,8 @@ class GraphicsItemLine(GraphicsItem, QGraphicsLineItem):
 
 
     def __init__(self, type='line'):
+        self.linePen = GraphicsItem.normalPen
+        self.tracePen = QPen(Qt.black, 2, Qt.SolidLine, Qt.RoundCap)
         QGraphicsLineItem.__init__(self)
         GraphicsItem.__init__(self)
         self._typeLine = type
@@ -16,9 +18,6 @@ class GraphicsItemLine(GraphicsItem, QGraphicsLineItem):
         self.graphicsItemsList.append(self)
         self.setZValue(2)
         self.resetSelection()
-        self.linePen = GraphicsItem.normalPen
-        self.tracePen = QPen(Qt.black, 2, Qt.SolidLine, Qt.RoundCap)
-        self.normalPen = self.linePen
         self.arrowsType = None
 
         self.setTypeLine(self._typeLine)
@@ -28,12 +27,17 @@ class GraphicsItemLine(GraphicsItem, QGraphicsLineItem):
         return LINE_TYPE
 
 
+    def resetPen(self):
+        if self._typeLine == 'trace':
+            pen = self.tracePen
+        else:
+            pen = self.linePen
+        self.setPen(pen)
+
+
     def setTypeLine(self, type):
         self._typeLine = type
-        self.normalPen = self.linePen
-        if type == 'trace':
-            self.normalPen = self.tracePen
-        self.setPen(self.normalPen)
+        self.resetPen()
 
 
     def typeLine(self):
@@ -118,6 +122,7 @@ class GraphicsItemLine(GraphicsItem, QGraphicsLineItem):
         if self.p2() == point:
             self.selectedPoint = 2
             return True
+        return False
 
 
     def resetSelectionPoint(self):

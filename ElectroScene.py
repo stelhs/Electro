@@ -28,6 +28,7 @@ class ElectroScene(QGraphicsScene):
         self.drawingRect = None
         self.drawingEllipse = None
         self.drawingText = None
+        self.newTextItem = None  # temporary storage new textItem
         self.insertedLinkPoint = None
         self.multiSelected = False  # Shift key is pressed
         self.selectingByMouse = None  # select rectangular area for selecting items
@@ -60,6 +61,8 @@ class ElectroScene(QGraphicsScene):
         self.sceneRectSize = QPointF(400, 200)  # in minGridSize
 
         self.setGrid(MAX_GRID_SIZE)
+
+        self.noRotate = False
 
 
         # configure graphic paper
@@ -276,6 +279,18 @@ class ElectroScene(QGraphicsScene):
             if self.drawingLine:
                 self.drawLinesHistory.append(self.drawingLine)
 
+            # stop drawing if line on component
+            if self.drawingLine and lineType == 'trace':
+                for item in self.allGraphicsItems():
+                    if item == self.drawingLine:
+                        continue
+                    if item.setSelectPoint(p):
+                        self.drawingLine = GraphicsItemLine(lineType)
+                        self.addGraphicsItem(self.drawingLine)
+                        self.stopLineDrawing()
+                        return
+
+
             self.drawingLine = GraphicsItemLine(lineType)
             self.drawingLine.setP1(p)
             self.addGraphicsItem(self.drawingLine)
@@ -340,6 +355,7 @@ class ElectroScene(QGraphicsScene):
 
             if self.mode == 'pastLinkPoint':
                 self.itemRemoveFromSelection(self.insertedLinkPoint)
+                self.history.addItems([self.insertedLinkPoint])
                 self.setMode('pastLinkPoint')
 
 
@@ -359,7 +375,8 @@ class ElectroScene(QGraphicsScene):
                     return
 
                 if (self.currentTool() == 'rectangle' or
-                    self.currentTool() == 'ellipse'):
+                    self.currentTool() == 'ellipse' or
+                    self.currentTool() == 'text'):
                     self.editor.setTool(None)
                     return
 
@@ -375,6 +392,7 @@ class ElectroScene(QGraphicsScene):
 
             if self.mode == 'pastLinkPoint':
                 self.setMode('select')
+                return
 
         QGraphicsScene.mousePressEvent(self, ev)
 
@@ -388,7 +406,11 @@ class ElectroScene(QGraphicsScene):
                     return
                 if item.type() == GROUP_TYPE:
                     self.editor.showEditGroupIndexName(item)
-
+                elif item.type() == LINK_TYPE:
+                    self.editor.displayRemoteLinkPoint(item)
+                elif item.type() == TEXT_TYPE:
+                    item.editEnable()
+                    item.setFocus()
 
 
     def stopLineDrawing(self):
@@ -440,13 +462,12 @@ class ElectroScene(QGraphicsScene):
         if not item:
             return
 
-        if item.type() == TEXT_TYPE:
-            item.editEnable()
-
         self.selectedCenter = self.mapToGrid(ev.scenePos())
         for item in self.selectedGraphicsItems():
             item.setCenter(self.selectedCenter)
         self.movingItem = True
+        for item in self.selectedGraphicsItems():
+            print("moved item %s" % item)
         self.history.changeItemsStart(self.selectedGraphicsItems())
         return
 
@@ -547,6 +568,7 @@ class ElectroScene(QGraphicsScene):
 
         if self.mode == 'pastLinkPoint':
             self.moveSelectedItems(self.mapToGrid(ev.scenePos(), MAX_GRID_SIZE))
+            self.calculateSelectionCenter()
             return
 
 
@@ -598,7 +620,7 @@ class ElectroScene(QGraphicsScene):
                     return
                 self.drawingText.remove()
                 self.addGraphicsItem(text)
-                self.history.addItems([text])
+                self.newTextItem = text
                 self.drawingText = None
                 text.editEnable()
                 text.setFocus()
@@ -619,6 +641,7 @@ class ElectroScene(QGraphicsScene):
             self.movedPointItems = []
 
         if self.movingItem:
+            print("moving finished")
             self.history.changeItemsFinish()
             self.movingItem = False
 
@@ -827,7 +850,7 @@ class ElectroScene(QGraphicsScene):
 
 
     def itemById(self, id):
-        for item in self.graphicsItems():
+        for item in self.allGraphicsItems():
             if item.id() == id:
                 return item
         return None
@@ -867,6 +890,7 @@ class ElectroScene(QGraphicsScene):
             item.setCenter(pos)
             self.addGraphicsItem(item)
             self.itemAddToSelection(item, True)
+            self.calculateSelectionCenter()
             self.insertedLinkPoint = item
 
         if mode == "textEdit":
@@ -879,7 +903,8 @@ class ElectroScene(QGraphicsScene):
     def selectedItemsBoundingRect(self):
         poligon = QPolygonF()
         for item in self.selectedGraphicsItems():
-            poligon += item.mapToScene(item.boundingRect())
+            rect = item.boundingRect()
+            poligon += item.mapToScene(rect)
         if not poligon:
             return
         return poligon.boundingRect()
@@ -933,16 +958,10 @@ class ElectroScene(QGraphicsScene):
             print("no data")
             return False
 
-        # set index for new root groups
-        for item in items:
-            rootItem = item.root()
-            if item.type() != GROUP_TYPE:
-                continue
-            group = item
-            if group.prefixName():
-                group.setIndex(0)
-                newIndex = self.editor.findFreeComponentIndex(group.prefixName())
-                group.setIndex(newIndex)
+        # reset old group indexes
+        allGroups = self.unpackAllItems(items, GROUP_TYPE)
+        for group in allGroups:
+            group.setIndex(0)
 
         # add items to scene
         for item in items:
@@ -952,20 +971,38 @@ class ElectroScene(QGraphicsScene):
         for item in items:
             item.moveByCenter(self.mapToGrid(self.mousePos))
 
+        # set index for all groups and subgroups
+        for group in allGroups:
+            newIndex = self.editor.findFreeComponentIndex(group.prefixName())
+            group.setIndex(newIndex)
+
+
         self.setMode("pasteFromClipboard")
         return True
 
 
     def pastComponent(self, group):
-        if group.prefixName():
-            newIndex = self.editor.findFreeComponentIndex(group.prefixName())
-            group.setIndex(newIndex)
+        # reset all subgroups indexes
+        allGroups = self.unpackAllItems([group], GROUP_TYPE)
+        for g in allGroups:
+            if not g.prefixName():
+                continue
+            g.setIndex(0)
 
         self.abortPastComponent()
         self.resetSelectionItems()
         self.addGraphicsItem(group)
         self.itemAddToSelection(group)
         group.moveByCenter(self.mapToGrid(self.mousePos))
+
+        # set all subgroup indexes
+        allGroups = self.unpackAllItems([group], GROUP_TYPE)
+        for g in allGroups:
+            if not g.prefixName():
+                continue
+            newIndex = self.editor.findFreeComponentIndex(g.prefixName())
+            g.setIndex(newIndex)
+
         self.setMode("pasteFromClipboard")
 
 
@@ -1001,6 +1038,26 @@ class ElectroScene(QGraphicsScene):
             if item.type() == type:
                 items.append(item)
         return items
+
+
+    def unpackAllItems(self, items, type):
+        itemsList = []
+        def addItems(items):
+            for item in items:
+                if (item.type() == GROUP_TYPE or
+                    item.type() == LINK_TYPE):
+                    addItems(item.items())
+
+                if type and item.type() != type:
+                    continue
+                itemsList.append(item)
+
+        addItems(items)
+        return itemsList
+
+
+    def allGraphicsItems(self, type=None):
+        return self.unpackAllItems(self.graphicsItems(), type)
 
 
     def graphicsUnpackedItems(self):
@@ -1043,7 +1100,12 @@ class ElectroScene(QGraphicsScene):
 
 
     def packItemsIntoGroup(self, items, name=None):
-        if len(items) < 2:
+        cleanItems = []
+        for item in items:
+            if item.type() != LINK_TYPE:
+                cleanItems.append(item)
+
+        if len(cleanItems) < 2:
             return None
         if not name:
             name = "undefined"
@@ -1051,8 +1113,8 @@ class ElectroScene(QGraphicsScene):
         group = GraphicsItemGroup()
         group.setName(name)
         self.resetSelectionItems()
-        self.removeGraphicsItems(items)
-        group.addItems(items)
+        self.removeGraphicsItems(cleanItems)
+        group.addItems(cleanItems)
         self.addGraphicsItem(group)
         return group
 
@@ -1064,14 +1126,14 @@ class ElectroScene(QGraphicsScene):
         items = group.items()
 
         self.removeGraphicsItem(group)
-
-        # assign index name for all unpacked groups
         for item in items:
+            pos = item.pos()
+            item.setParent(None)
             if item.type() == GROUP_TYPE and item.prefixName():
                 newIndex = self.editor.findFreeComponentIndex(item.prefixName())
-                print("set new index %d" % newIndex)
                 item.setIndex(newIndex)
             self.addGraphicsItem(item)
+            item.setPos(pos)
 
         return items
 
@@ -1092,6 +1154,31 @@ class ElectroScene(QGraphicsScene):
 
     def removeGraphicsItems(self, items):
         for item in items:
+            self.removeGraphicsItem(item)
+
+
+    def itemTextfocusInEvent(self, item):
+        self.setMode('textEdit')
+        if item == self.newTextItem:
+            return
+        self.history.changeItemsStart([item])
+
+
+    def itemTextfocusOutEvent(self, item):
+        item.editDisable()
+        self.setMode('select')
+        newTextItem = self.newTextItem
+        self.newTextItem = None
+        if item == newTextItem:
+            if not len(item.text()):
+                self.removeGraphicsItem(item)
+                return
+            self.history.addItems([item])
+            return
+
+        actions = self.history.changeItemsFinish()
+        if not len(item.text()):
+            self.history.removeItems([item], actions)
             self.removeGraphicsItem(item)
 
 

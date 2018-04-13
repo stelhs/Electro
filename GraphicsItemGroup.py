@@ -3,6 +3,8 @@ from GraphicsItemLine import *
 from GraphicsItemRect import *
 from GraphicsItemEllipse import *
 from GraphicsItemText import *
+from PyQt4.Qt import QGraphicsEllipseItem, QPoint, QGraphicsPolygonItem
+from math import *
 
 
 
@@ -18,6 +20,10 @@ class GraphicsItemGroup(GraphicsItem):
         self.indexNameLabel = QGraphicsSimpleTextItem()
         self.indexNameLabel.setBrush(QBrush(Qt.black))
         self.indexNameLabel.setZValue(0)
+        self._dimensions = None
+
+        self.r1 = None
+        self.r2 = None
 
 
     def type(self):
@@ -55,20 +61,23 @@ class GraphicsItemGroup(GraphicsItem):
         return self.mountPoint
 
 
-    def setPos(self, point):
-        parentMountPoint = QPointF(0, 0)
-        if self.parent():
-            parentMountPoint = self.parent().pos()
+    def pos(self):
+        if not self.parent():
+            return self.mountPoint
+        return self.parentPos() + self.mountPoint
 
-        newMountPoint = point - parentMountPoint
+
+    def setPos(self, point, withoutChildrens=False):
+        newMountPoint = point - self.parentPos()
         delta = newMountPoint - self.mountPoint
-        for item in self.items():
-            item.setPos(item.pos() + delta)
 
-        self.mountPoint = newMountPoint
-        self.indexNameLabel.setPos(self.mountPoint - QPointF(MAX_GRID_SIZE, 0))
+        if not withoutChildrens:
+            for item in self.items():
+                item.setPos(item.pos() + delta)
 
-        # print("%d setPos %s, mountPoint = %s, pos = %s" % (self.id(), point, self.mountPoint, self.pos()))
+        if not self.parent():
+            self.mountPoint += delta
+        self.indexNameLabel.setPos(self.pos() - QPointF(MAX_GRID_SIZE, 0))
 
 
     def addItems(self, items):
@@ -76,35 +85,23 @@ class GraphicsItemGroup(GraphicsItem):
             return False
 
         for item in items:
-            if item.type() == GROUP_TYPE:
-                item.setIndex(0)
             item.removeFromQScene()
             self.graphicsItemsList.append(item)
 
-        return True
-
-
-    def calculateMountPoint(self):
         poligon = QPolygonF()
-        for item in self.items():
+        for item in self.graphicsItemsList:
             rect = item.boundingRect()
             p = QPolygonF([rect.topLeft() + item.pos(),
                            rect.topRight() + item.pos(),
                            rect.bottomRight() + item.pos(),
                            rect.bottomLeft() + item.pos()])
-
             poligon += p
-        if not poligon:
-            return
 
-        parentMountPoint = QPointF(0, 0)
-        if self.parent():
-            parentMountPoint = self.parent().pos()
-
-        ItemsBoundingRect = poligon.boundingRect()
-        self.mountPoint = mapToGrid(ItemsBoundingRect.topLeft() -
-                                    parentMountPoint,
+        groupBoundingRect = poligon.boundingRect()
+        self.mountPoint = mapToGrid(groupBoundingRect.topLeft() - self.parentPos(),
                                     MAX_GRID_SIZE)
+        self._dimensions = QSizeF(round(groupBoundingRect.width() / MAX_GRID_SIZE) * MAX_GRID_SIZE,
+                                  round(groupBoundingRect.height() / MAX_GRID_SIZE) * MAX_GRID_SIZE)
 
 
     def setScene(self, scene):
@@ -112,9 +109,6 @@ class GraphicsItemGroup(GraphicsItem):
 
         for item in self.items():
             item.setScene(scene)
-
-        if not self.pos():
-            self.calculateMountPoint()
 
         for item in self.items():
             item.setParent(self)
@@ -127,18 +121,23 @@ class GraphicsItemGroup(GraphicsItem):
         return self._scene
 
 
-    def setParent(self, parentItem):
-        if self.parent() and parentItem:
+    def parentPos(self):
+        parentPos = QPointF(0, 0)
+        if self.parent():
+            parentPos = self.parent().pos()
+        return parentPos
+
+
+    def setParent(self, newParent):
+        parent = self.parent()
+        if newParent and parent:
             return
-        GraphicsItem.setParent(self, parentItem)
-        if parentItem:
-            self.mountPoint -= parentItem.pos()
-
-
-    def pos(self):
-        if not self.parent():
-            return self.mountPoint
-        return self.parent().pos() + self.mountPoint
+        if newParent:
+            self.mountPoint = self.pos() - newParent.pos()
+        else:
+            if parent:
+                self.mountPoint += parent.posFromParent()
+        GraphicsItem.setParent(self, newParent)
 
 
     def mapToScene(self, arg):
@@ -255,11 +254,9 @@ class GraphicsItemGroup(GraphicsItem):
             if name == 'graphicsObjects':
                 continue
             if not name in properties or properties[name] != value:
-                print("%d group not matched" % self.id())
                 return False
 
         if len(properties['graphicsObjects']) != len(selfProperties['graphicsObjects']):
-            print("%d group not matched count subitems" % self.id())
             return False
 
         for itemProperties in properties['graphicsObjects']:
@@ -268,17 +265,54 @@ class GraphicsItemGroup(GraphicsItem):
                     continue
 
                 if not item.compareProperties(itemProperties):
-                    print("%d group not matched sub item %d" % (self.id(), item.id()))
                     return False
 
-        print("%d group matched" % self.id())
         return True
 
 
-    def rotate(self, center, angle):
+
+    def rotate(self, center, angle, parentOldMountPoint=None):
+        if parentOldMountPoint:
+            delta = self.parent().mountPoint - parentOldMountPoint
+            self.mountPoint -= delta
+
+        localCenter = center - self.parentPos()
+        t = QTransform()
+        t.translate(localCenter.x(), localCenter.y())
+        t.rotate(angle)
+        t.translate(-localCenter.x(), -localCenter.y())
+
+        rect = QRectF(self.mountPoint, self._dimensions)
+        points = []
+        points.append(rect.topLeft())
+        points.append(rect.topRight())
+        points.append(rect.bottomRight())
+        points.append(rect.bottomLeft())
+
+        rotatePoints = []
+        for p in points:
+            rotatePoints.append(t.map(p))
+        oldMountPoint = self.mountPoint
+        self.mountPoint = rotatePoints[3]
+        self._dimensions = QSizeF(self._dimensions.height(),
+                                  self._dimensions.width())
+
         for item in self.items():
-            item.rotate(center, angle)
-#        self.calculateMountPoint()
+            if item.type() == GROUP_TYPE:
+                item.rotate(center, angle, oldMountPoint)
+            else:
+                item.rotate(center, angle)
+        self.indexNameLabel.setPos(self.pos() - QPointF(MAX_GRID_SIZE, 0))
+
+
+    def allSubItems(self, type=None):
+        subItems = []
+        for item in self.graphicsItemsList:
+            if item.type() == GROUP_TYPE:
+                subItems += item.allSubItems(type)
+            if type and item.type() == type:
+                subItems.append(item)
+        return subItems
 
 
     def __str__(self):
@@ -286,7 +320,16 @@ class GraphicsItemGroup(GraphicsItem):
         if not len(self.graphicsItemsList):
             return str
 
-        str += ", contained items:\n"
+        str += ", mountPoint:(%d, %d), dimesions:(%d:%d) " % (
+                                    self.mountPoint.x(),
+                                    self.mountPoint.y(),
+                                    self._dimensions.width(),
+                                    self._dimensions.height())
+
+        if self.prefixName():
+            str += "indexName:%s " % self.indexName()
+
+        str += "contained items:\n"
         for item in self.graphicsItemsList:
             str += "\t\t\t%s\n" % item.__str__()
 
@@ -300,14 +343,13 @@ class GraphicsItemGroup(GraphicsItem):
 
     def removeFromQScene(self):
         self.resetSelection()
-
         if self.indexNameLabel.scene():
             scene = self.indexNameLabel.scene()
             scene.removeItem(self.indexNameLabel)
-
         for item in self.items():
-            item.setParent(None)
             item.removeFromQScene()
+        # self.graphicsItemsList = []
+        self._scene = None
 
 
 
