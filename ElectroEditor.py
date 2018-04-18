@@ -416,6 +416,26 @@ class ElectroEditor(QMainWindow):
             self.openProject(file)
             return
 
+        # search item by indexName or id
+        if self.keyCTRL and key == 70:  # CTRL+F
+            def dialogOnReturn(str):
+                str = str.strip()
+                if str.isdigit():
+                    item = self.itemById(int(str))
+                else:
+                    item = self.findGroupByIndexName(str)
+
+                if not item:
+                    self.showStatusBarErrorMessage("not found")
+                    return
+                self.resetSelectionItems()
+                item.scene().itemAddToSelection(item)
+                self.displayItem(item)
+
+            self.dialogLineEditShow("Search item. Enter indexName or itemId:",
+                                    dialogOnReturn)
+            return
+
         # create connection
         if not self.keyCTRL and key == 67:  # C
             def dialogOnReturn(str):
