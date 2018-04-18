@@ -14,7 +14,6 @@ class GraphicsItemLink(GraphicsItem):
         self.ellipse = GraphicsItemEllipse()
         self.ellipse.setBrush(QBrush(self.normalPen.color()))
         self.addrText = GraphicsItemText()
-        self.addrText.setAlignment(Qt.AlignCenter)
         self.addItems([self.line, self.ellipse, self.addrText])
 
         if pos:
@@ -180,34 +179,29 @@ class GraphicsItemLink(GraphicsItem):
         self.addrText.setText(text)
 
         direction = self.direction()
-        print("direction %s" % direction)
         if direction == 'top':
-            pos = self.arrowPos() + QPointF(-MAX_GRID_SIZE / 2, -MAX_GRID_SIZE * 3)
-            rect = QRectF(0, 0, MAX_GRID_SIZE, MAX_GRID_SIZE * 3)
+            pos = self.arrowPos() + QPointF(-MAX_GRID_SIZE / 2, -MAX_GRID_SIZE * 4)
+            rect = QRectF(0, 0, MAX_GRID_SIZE * 4, MAX_GRID_SIZE)
             angle = 90
         elif direction == 'bottom':
             pos = self.arrowPos() + QPointF(-MAX_GRID_SIZE / 2, 0)
-            rect = QRectF(0, 0, MAX_GRID_SIZE, MAX_GRID_SIZE * 3)
+            rect = QRectF(0, 0, MAX_GRID_SIZE * 4, MAX_GRID_SIZE)
             angle = 90
         elif direction == 'left':
-            pos = self.arrowPos() + QPointF(-MAX_GRID_SIZE * 3, -MAX_GRID_SIZE / 2)
-            rect = QRectF(0, 0, MAX_GRID_SIZE * 3, MAX_GRID_SIZE)
+            pos = self.arrowPos() + QPointF(-MAX_GRID_SIZE * 4, -MAX_GRID_SIZE / 2)
+            rect = QRectF(0, 0, MAX_GRID_SIZE * 4, MAX_GRID_SIZE)
             angle = 0
         elif direction == 'right':
             pos = self.arrowPos() + QPointF(0, -MAX_GRID_SIZE / 2)
-            rect = QRectF(0, 0, MAX_GRID_SIZE * 3, MAX_GRID_SIZE)
+            rect = QRectF(0, 0, MAX_GRID_SIZE * 4, MAX_GRID_SIZE)
             angle = 0
 
         self.addrText.resetRotation()
-        self.addrText.rotate(pos, angle)
         self.addrText.setPos(pos)
         self.addrText.setRect(rect)
-
-
-    def addr(self):
-        scene = self.scene()
-        quadrant = scene.quadrantByPos(self.pos())
-        return "%d/%s" % (scene.num(), quadrant)
+        self.addrText.rotate(pos, angle)
+        self.addrText.setPos(pos)
+        self.addrText.setAlignment(Qt.AlignCenter)
 
 
     def connection(self):
@@ -249,22 +243,28 @@ class GraphicsItemLink(GraphicsItem):
 
 
 
-connection_last_id = 0
+
 class Connection():
+    lastId = 0
     def __init__(self, editor, linkPoint1, linkPoint2):
         global connection_last_id
         self._editor = editor
         self._linkPoints = []
         self._linkPoints.append(linkPoint1)
         self._linkPoints.append(linkPoint2)
-        connection_last_id += 1
-        self._id = connection_last_id
+        Connection.lastId += 1
+        self._id = Connection.lastId
         for linkPoint in self._linkPoints:
             linkPoint.setConnection(self)
 
 
     def id(self):
         return self._id
+
+
+    @staticmethod
+    def resetLastId():
+        Connection.lastId = 0
 
 
     def linkPoints(self):
@@ -275,6 +275,13 @@ class Connection():
         for linkPoint in self._linkPoints:
             linkPoint.setConnection(None)
         self._editor.connectionsList.remove(self)
+
+
+    def properties(self):
+        conn = {'id': self.id(),
+                'p1': self._linkPoints[0].id(),
+                'p2': self._linkPoints[1].id()}
+        return conn
 
 
 

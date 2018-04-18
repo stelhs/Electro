@@ -10,8 +10,6 @@ import copy
 MAX_GRID_SIZE = 20
 
 
-graphicsItemLastId = 0
-
 # TODO: implements enum
 NOT_DEFINED_TYPE = QGraphicsItem.UserType + 1
 LINE_TYPE = QGraphicsItem.UserType + 2
@@ -97,17 +95,9 @@ def createGraphicsObjectByProperties(ogjectProperties):
     return item
 
 
-def createGraphicsObjectsByProperties(properties):
-    items = []
-    for itemProp in properties:
-        item = createGraphicsObjectByProperties(itemProp)
-        if item:
-            items.append(item)
-
-    return items
-
 
 class GraphicsItem():
+    lastId = 0
     MARK_SIZE = 8
     normalPen = QPen(QColor(0, 0, 200), 2, Qt.SolidLine, Qt.RoundCap)
     selectedPen = QPen(Qt.magenta, 3, Qt.SolidLine, Qt.RoundCap)
@@ -122,9 +112,8 @@ class GraphicsItem():
         self._parentItem = None
         self.mouseMoveDelta = None
 
-        global graphicsItemLastId
-        graphicsItemLastId += 1
-        self.itemId = graphicsItemLastId
+        GraphicsItem.lastId += 1
+        self._id = GraphicsItem.lastId
 
 
     def type(self):
@@ -136,7 +125,7 @@ class GraphicsItem():
 
 
     def id(self):
-        return self.itemId
+        return self._id
 
 
     def setName(self, name):
@@ -145,6 +134,17 @@ class GraphicsItem():
 
     def name(self):
         return self._name
+
+
+    @staticmethod
+    def resetLastId():
+        GraphicsItem.lastId = 0
+
+
+    def addr(self):
+        scene = self.scene()
+        quadrant = scene.quadrantByPos(self.pos())
+        return "%d/%s" % (scene.num(), quadrant)
 
 
     def resetPen(self):

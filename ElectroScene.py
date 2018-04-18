@@ -404,13 +404,29 @@ class ElectroScene(QGraphicsScene):
                 item = self.graphicItemByCoordinate(ev.scenePos())
                 if not item:
                     return
+
                 if item.type() == GROUP_TYPE:
+                    if self.keyShift:
+                        parentGroup = item.parentComponentGroup()
+                        if parentGroup:
+                            self.resetSelectionItems()
+                            self.itemAddToSelection(parentGroup)
+                            self.editor.displayItem(parentGroup)
+                            return
+                        self.editor.showSwitchToSubComponent(item)
+                        return
+
                     self.editor.showEditGroupIndexName(item)
-                elif item.type() == LINK_TYPE:
+                    return
+
+                if item.type() == LINK_TYPE:
                     self.editor.displayRemoteLinkPoint(item)
-                elif item.type() == TEXT_TYPE:
+                    return
+
+                if item.type() == TEXT_TYPE:
                     item.editEnable()
                     item.setFocus()
+                    return
 
 
     def stopLineDrawing(self):
@@ -644,9 +660,9 @@ class ElectroScene(QGraphicsScene):
             print("moving finished")
             self.history.changeItemsFinish()
             self.movingItem = False
+            self.editor.updateAllComponentsView()
 
         self.selectingByMouse = None
-
         QGraphicsScene.mouseReleaseEvent(self, ev)
 
 
@@ -679,22 +695,33 @@ class ElectroScene(QGraphicsScene):
             self.keyCTRL = True
             return
 
-        if key == 87:  # W
-            print(self.history)
-            print(self)
-            return
+        if not self.keyCTRL and not self.keyShift:
+            if key == 87:  # W
+                print(self.history)
+                print(self)
+                return
 
-        if key == 83:  # S
-            self.changeGridSize()
-            return
+            if key == 83:  # S
+                self.changeGridSize()
+                return
 
-        # change lines type
-        if key == 84:  # T
-            if self.mode == 'useTool':
-                self.changeDrawingLinesType()
-            if self.mode == 'select':
-                self.changeSelectedLinesType()
-            return
+            # change lines type
+            if key == 84:  # T
+                if self.mode == 'useTool':
+                    self.changeDrawingLinesType()
+                if self.mode == 'select':
+                    self.changeSelectedLinesType()
+                return
+
+            if key == 88:  # x (cut and move selected items)
+                items = self.selectedGraphicsItems()
+                self.history.changeItemsStart(items)
+                for item in items:
+                    item.moveByCenter(self.mapToGrid(self.mousePos))
+
+                self.setMode("moveSelectedItems")
+                return
+
 
         if key == 16777219:  # Backspace
             if self.mode == 'useTool' and (
@@ -758,15 +785,6 @@ class ElectroScene(QGraphicsScene):
             self.unpackSelectedGroups()
             return
 
-        if key == 88:  # x (cut and move selected items)
-            items = self.selectedGraphicsItems()
-            self.history.changeItemsStart(items)
-            for item in items:
-                item.moveByCenter(self.mapToGrid(self.mousePos))
-
-            self.setMode("moveSelectedItems")
-            return
-
         if key == 16777235:  # UP
             if not len(self.graphicsItems()):
                 return
@@ -774,6 +792,7 @@ class ElectroScene(QGraphicsScene):
             p = self.selectedCenter
             p.setY(p.y() - self.gridSize)
             self.moveSelectedItemsByKeys(p)
+            self.editor.updateAllComponentsView()
             return
 
         if key == 16777237:  # DOWN
@@ -783,6 +802,7 @@ class ElectroScene(QGraphicsScene):
             p = self.selectedCenter
             p.setY(p.y() + self.gridSize)
             self.moveSelectedItemsByKeys(p)
+            self.editor.updateAllComponentsView()
             return
 
         if key == 16777234:  # LEFT
@@ -792,6 +812,7 @@ class ElectroScene(QGraphicsScene):
             p = self.selectedCenter
             p.setX(p.x() - self.gridSize)
             self.moveSelectedItemsByKeys(p)
+            self.editor.updateAllComponentsView()
             return
 
         if key == 16777236:  # RIGHT
@@ -801,6 +822,7 @@ class ElectroScene(QGraphicsScene):
             p = self.selectedCenter
             p.setX(p.x() + self.gridSize)
             self.moveSelectedItemsByKeys(p)
+            self.editor.updateAllComponentsView()
             return
 
         QGraphicsScene.keyPressEvent(self, event)
@@ -953,10 +975,12 @@ class ElectroScene(QGraphicsScene):
     def pastFromClipboard(self):
         jsonText = self.editor.fromClipboard()
         print("pastFromClipboard")
-        items = self.graphicsObjectFromJson(jsonText)
+        items = self.editor.graphicsObjectFromJson(jsonText)
         if not len(items):
             print("no data")
             return False
+
+        self.resetSelectionItems()
 
         # reset old group indexes
         allGroups = self.unpackAllItems(items, GROUP_TYPE)
@@ -973,9 +997,7 @@ class ElectroScene(QGraphicsScene):
 
         # set index for all groups and subgroups
         for group in allGroups:
-            newIndex = self.editor.findFreeComponentIndex(group.prefixName())
-            group.setIndex(newIndex)
-
+            self.editor.setUniqueComponentIndex(group)
 
         self.setMode("pasteFromClipboard")
         return True
@@ -1000,8 +1022,7 @@ class ElectroScene(QGraphicsScene):
         for g in allGroups:
             if not g.prefixName():
                 continue
-            newIndex = self.editor.findFreeComponentIndex(g.prefixName())
-            g.setIndex(newIndex)
+            self.editor.setUniqueComponentIndex(g)
 
         self.setMode("pasteFromClipboard")
 
@@ -1010,17 +1031,6 @@ class ElectroScene(QGraphicsScene):
         if self.mode == 'pasteFromClipboard':
             self.removeGraphicsItems(self.selectedGraphicsItems())
             self.setMode('select')
-
-
-    def graphicsObjectFromJson(self, jsonText):
-        try:
-            ItemsProperties = json.loads(str(jsonText))
-        except:
-            print("Bad clipboard data")
-            return []
-
-        self.resetSelectionItems()
-        return createGraphicsObjectsByProperties(ItemsProperties)
 
 
     def rotateSelectedItems(self, angle):
@@ -1113,7 +1123,11 @@ class ElectroScene(QGraphicsScene):
         group = GraphicsItemGroup()
         group.setName(name)
         self.resetSelectionItems()
-        self.removeGraphicsItems(cleanItems)
+
+        # remove items from scene
+        for item in cleanItems:
+            self.graphicsItemsList.remove(item)
+            item.removeFromQScene()
         group.addItems(cleanItems)
         self.addGraphicsItem(group)
         return group
@@ -1130,8 +1144,7 @@ class ElectroScene(QGraphicsScene):
             pos = item.pos()
             item.setParent(None)
             if item.type() == GROUP_TYPE and item.prefixName():
-                newIndex = self.editor.findFreeComponentIndex(item.prefixName())
-                item.setIndex(newIndex)
+                self.editor.setUniqueComponentIndex(item)
             self.addGraphicsItem(item)
             item.setPos(pos)
 
@@ -1148,6 +1161,12 @@ class ElectroScene(QGraphicsScene):
 
     def removeGraphicsItem(self, item):
         self.graphicsItemsList.remove(item)
+        if item.type() == GROUP_TYPE:
+            subComponents = self.editor.subComponentGroups(item)
+            for subComponent in subComponents:
+                subComponent.setParentComponentGroup(None)
+                self.editor.setUniqueComponentIndex(subComponent)
+                self.editor.updateSubComponentsView(subComponent)
         item.removeFromQScene()
         self.intersectionPointsShow()
 

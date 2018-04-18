@@ -21,6 +21,7 @@ class GraphicsItemGroup(GraphicsItem):
         self.indexNameLabel.setBrush(QBrush(Qt.black))
         self.indexNameLabel.setZValue(0)
         self._dimensions = None
+        self._parentComponentGroup = None
 
         self.r1 = None
         self.r2 = None
@@ -39,6 +40,10 @@ class GraphicsItemGroup(GraphicsItem):
 
 
     def indexName(self):
+        if self._parentComponentGroup:
+            return "%s.%d" % (self._parentComponentGroup.indexName(),
+                                  self._index)
+
         if self._prefixName:
             return "%s%d" % (self._prefixName, self._index)
         return ""
@@ -54,7 +59,15 @@ class GraphicsItemGroup(GraphicsItem):
         if not self.prefixName():
             return
         self._index = int(index)
-        self.indexNameLabel.setText(self.indexName())
+        self.updateView()
+
+
+    def updateView(self):
+        text = "%s" % self.indexName()
+        if self._parentComponentGroup:
+            text += "(%s)" % self._parentComponentGroup.addr()
+        self.indexNameLabel.setText(text)
+        self.indexNameLabel.setPos(self.pos() - QPointF(MAX_GRID_SIZE, 0))
 
 
     def posFromParent(self):
@@ -77,7 +90,7 @@ class GraphicsItemGroup(GraphicsItem):
 
         if not self.parent():
             self.mountPoint += delta
-        self.indexNameLabel.setPos(self.pos() - QPointF(MAX_GRID_SIZE, 0))
+        self.updateView()
 
 
     def addItems(self, items):
@@ -182,6 +195,10 @@ class GraphicsItemGroup(GraphicsItem):
         if self.prefixName():
             properties['prefixName'] = self.prefixName()
             properties['index'] = self.index()
+
+        parentComponentGroup = self.parentComponentGroup()
+        if parentComponentGroup:
+            properties['parentComponentId'] = parentComponentGroup.id()
 
         itemProperties = []
         for item in self.items():
@@ -302,7 +319,7 @@ class GraphicsItemGroup(GraphicsItem):
                 item.rotate(center, angle, oldMountPoint)
             else:
                 item.rotate(center, angle)
-        self.indexNameLabel.setPos(self.pos() - QPointF(MAX_GRID_SIZE, 0))
+        self.updateView()
 
 
     def allSubItems(self, type=None):
@@ -313,6 +330,15 @@ class GraphicsItemGroup(GraphicsItem):
             if type and item.type() == type:
                 subItems.append(item)
         return subItems
+
+
+    def setParentComponentGroup(self, group):
+        self._parentComponentGroup = group
+        self.updateView()
+
+
+    def parentComponentGroup(self):
+        return self._parentComponentGroup
 
 
     def __str__(self):
@@ -350,6 +376,5 @@ class GraphicsItemGroup(GraphicsItem):
             item.removeFromQScene()
         # self.graphicsItemsList = []
         self._scene = None
-
 
 

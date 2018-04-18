@@ -104,9 +104,7 @@ class EditGroupValidator(DialogLineEditValidator):
         if string.isdigit():
             return QValidator.Invalid, pos
 
-        # string can not end with letters
-        if len(string) > 1 and not string[-1].isdigit() and string[-2].isdigit():
-                return QValidator.Invalid, pos
+        unpackedName = self.editor.unpackGroupIndexName(string)
 
         # space for after complete
         if string[-1] == ' ':
@@ -116,20 +114,39 @@ class EditGroupValidator(DialogLineEditValidator):
             if string[-2].isdigit():
                 return QValidator.Invalid, pos
 
-            self.lineEdit.setText("%s%d" % (
-                                  string[:-1],
-                                  self.editor.findFreeComponentIndex(string[:-1])))
+            if string[-2] == '.':
+                indexName = self.editor.packGroupIndexName(unpackedName)
+                parentGroup = self.editor.findGroupByIndexName(indexName, self.group)
+                if not parentGroup:
+                    self.sendError("parent component '%s' not exists" % indexName)
+                    return QValidator.Invalid, pos
+                prefix = "%s." % parentGroup.indexName()
+                index = self.editor.findFreeSubComponentIndex(parentGroup)
+            else:
+                prefix = string[:-1]
+                index = self.editor.findFreeComponentIndex(string[:-1])
+
+            self.lineEdit.setText("%s%d" % (prefix, index))
             return QValidator.Invalid, pos
 
-        # check for completely entered name
-        if not self.editor.unpackGroupIndexName(string):
-            self.sendError("Not complete")
-            return QValidator.Intermediate, pos
+        # check for multiple name
+        if string[-1].find('.') > 0:
+            if not unpackedName[2]:
+                self.sendError("Not complete")
+                return QValidator.Intermediate, pos
+
+            indexName = self.editor.packGroupIndexName(unpackedName[:-1])
+            group = self.editor.findGroupByIndexName(indexName, self.group)
+            if not group:
+                self.sendError("Parent component '%s' not exists" % indexName)
+                return QValidator.Intermediate, pos
+            self.sendOkMessage("OK")
+            return QValidator.Acceptable, pos
 
         # check for name's busyness
-        res = self.editor.findGroupByIndexName(string, self.group)
-        if res:
-            self.sendError("component with name '%s' already exists" % string)
+        group = self.editor.findGroupByIndexName(string, self.group)
+        if group:
+            self.sendError("component '%s' already exists" % string)
             return QValidator.Intermediate, pos
 
         self.sendOkMessage("OK")
@@ -195,6 +212,33 @@ class ConnectinValidator(DialogLineEditValidator):
 
         self.editor.itemsAddToSelection(linkPoints)
         return QValidator.Acceptable, pos
+
+
+
+class IntValidator(DialogLineEditValidator):
+    def __init__(self, editor, range=None):
+        DialogLineEditValidator.__init__(self, editor)
+        QIntValidator.__init__(self)
+        self._range = range
+
+
+    def validate(self, string, pos):
+        validsymbols = "0123456789"
+        string = str(string)
+        if not self.stringIsValid(string):
+            return QValidator.Invalid, pos
+
+        if not len(string):
+            return QValidator.Intermediate, pos
+
+        enteredInt = int(string)
+        for i in self._range:
+            if i == enteredInt:
+                self.sendOkMessage("OK")
+                return QValidator.Acceptable, pos
+
+        self.sendError("Incorrect number")
+        return QValidator.Intermediate, pos
 
 
 

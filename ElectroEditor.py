@@ -7,15 +7,17 @@ import os, glob, sys, pprint, re
 
 
 class ElectroEditor(QMainWindow):
-
+    EDITOR_VERSION = 1
 
     def __init__(self, app):
         QMainWindow.__init__(self)
         self.app = app
         self.keyCTRL = False
+        self.keyShift = False
         self.pages = []
         self.componentList = []
         self.connectionsList = []
+        self.projectFileName = ""
 
         self.setWindowTitle("Electro editor")
 
@@ -53,6 +55,7 @@ class ElectroEditor(QMainWindow):
             if index < 0:
                 return
             page = self.tabWidget.widget(index)
+            page.updateLinkPoints()
             self.setEditorTool(page.scene().currentTool())
 
         # create left panel
@@ -65,10 +68,13 @@ class ElectroEditor(QMainWindow):
         self.componentListWidget = QListWidget()
         leftPanellayout.addWidget(self.componentListWidget)
         def componentCliced(component):
-            self.scene().setGrid(MAX_GRID_SIZE)
-            self.scene().setMode('select')
+            scene = self.scene()
+            if not scene:
+                return
+            scene.setGrid(MAX_GRID_SIZE)
+            scene.setMode('select')
             self.showComponentInfo(component)
-            self.scene().pastComponent(component.group())
+            scene.pastComponent(component.group())
             self.sceneView().setFocus()
             # self.componentListWidget.setFocus(True)
         self.componentListWidget.itemClicked.connect(componentCliced)
@@ -144,14 +150,22 @@ class ElectroEditor(QMainWindow):
 
 
     def actualizePagesTabs(self, currentPage=None):
-        for i in range(self.tabWidget.count()):
-             self.tabWidget.removeTab(i)
+        # remove all tabs
+        cnt = self.tabWidget.count()
+        while(cnt):
+            for i in range(cnt):
+                self.tabWidget.removeTab(i)
+            cnt = self.tabWidget.count()
 
+        # add tabs
         i = 0
         for page in self.pages:
             i += 1
-            self.tabWidget.addTab(page, "%d: %s" % (i, page.name()))
             page.setNum(i)
+            if page.name():
+                self.tabWidget.addTab(page, "%d: %s" % (i, page.name()))
+            else:
+                self.tabWidget.addTab(page, "%d" % i)
 
         if not currentPage:
             return
@@ -198,18 +212,12 @@ class ElectroEditor(QMainWindow):
         self.actualizePagesTabs(page)
 
 
-    def attachPage(self, page):
-       # page.attach()
-        self.actualizePagesTabs(page)
-
-
-    def detachPage(self, page):
-        self.pages.remove(page)
+    def removePage(self, page):
+        page.remove()
         self.actualizePagesTabs()
 
 
     def moveCurrentPageLeft(self):
-        print("moveCurrentPageLeft")
         def prev(index):
             if index == 0:
                 return 0
@@ -231,7 +239,6 @@ class ElectroEditor(QMainWindow):
 
 
     def moveCurrentPageRight(self):
-        print("moveCurrentPageRight")
         def next(index):
             if index == (len(self.pages) - 1):
                 return len(self.pages) - 1
@@ -253,6 +260,8 @@ class ElectroEditor(QMainWindow):
 
 
     def scene(self):
+        if not len(self.pages):
+            return None
         return self.tabWidget.currentWidget().scene()
 
 
@@ -318,6 +327,8 @@ class ElectroEditor(QMainWindow):
         QMainWindow.mousePressEvent(self, ev)
         self.dialogLineEditHide()
 
+        if not self.scene():
+            return
         if self.scene().currentTool() == 'useTool':
             self.scene().abortTool()
             self.setMode('select')
@@ -325,11 +336,26 @@ class ElectroEditor(QMainWindow):
             return
 
 
-
     def keyPressEvent(self, event):
         key = event.key()
         print key
+
+        if key == 16777249:  # CTRL
+            self.keyCTRL = True
+
+        if key == 16777248:  # Shift
+            self.keyShift = True
+
+        # add new page
+        if self.keyCTRL and key == 80:  # CTRL+P
+            def dialogOnReturn(name):
+                self.addPage(name)
+            self.dialogLineEditShow("Enter new page name:", dialogOnReturn)
+            return
+
         scene = self.scene()
+        if not scene:
+            return
 
         if key == 16777216:  # ESC
             self.dialogLineEditHide()
@@ -369,6 +395,27 @@ class ElectroEditor(QMainWindow):
             self.scene().setMode('pastLinkPoint')
             return
 
+        # save project
+        if self.keyCTRL and key == 83:  # CTRL+S
+            if not self.projectFileName:
+                file = str(QFileDialog.getSaveFileName(None, "Save project",
+                                            filter="Electro schematic file (*.es)"))
+                if not file:
+                    return
+                self.projectFileName = file
+
+            self.saveProject(self.projectFileName)
+            return
+
+        # open project
+        if self.keyCTRL and key == 79:  # CTRL+O
+            file = str(QFileDialog.getOpenFileName(None, "open schematic",
+                                        filter="Electro schematic file (*.es)"))
+            if not file:
+                return
+            self.openProject(file)
+            return
+
         # create connection
         if not self.keyCTRL and key == 67:  # C
             def dialogOnReturn(str):
@@ -404,9 +451,6 @@ class ElectroEditor(QMainWindow):
                                     validator=validator)
             return
 
-        if key == 16777249:  # CTRL
-            self.keyCTRL = True
-
         if self.keyCTRL and key == 16777234:  # CTRL+LEFT
             self.moveCurrentPageLeft()
             return
@@ -416,7 +460,7 @@ class ElectroEditor(QMainWindow):
             return
 
         # add new component
-        if self.keyCTRL and key == 79:  # CTRL+O
+        if self.keyCTRL and key == 87:  # CTRL+W
             def dialogOnReturn(str):
                 [name, prefix] = str.split()
                 items = scene.selectedGraphicsItems()
@@ -433,7 +477,7 @@ class ElectroEditor(QMainWindow):
 
                 group.setPrefixName(prefix)
                 if not group.index():
-                    group.setIndex(self.findFreeComponentIndex(prefix))
+                    self.setUniqueComponentIndex(group)
                 self.addComponent(name, group)
                 self.showStatusBarMessage("added component: %s" % name)
 
@@ -444,16 +488,6 @@ class ElectroEditor(QMainWindow):
             validator = ComponentNameValidator(self)
             self.dialogLineEditShow("Save selected as component. Enter new component file name and component_prefix:",
                                     dialogOnReturn, validator=validator)
-            return
-
-        # add new page
-        if self.keyCTRL and key == 80:  # CTRL+P
-            def dialogOnReturn(name):
-                if not name:
-                    self.showStatusBarErrorMessage("no page name entered")
-                    return
-                self.addPage(name)
-            self.dialogLineEditShow("Enter new page name:", dialogOnReturn)
             return
 
         # edit page name
@@ -481,9 +515,6 @@ class ElectroEditor(QMainWindow):
             name = self.currectPage().name()
             def dialogOnReturn(name):
                 page = self.currectPage()
-                if not name:
-                    self.showStatusBarErrorMessage("no page name entered")
-                    return
                 self.renamePage(page, name)
 
             self.dialogLineEditShow("Edit current page name:",
@@ -513,7 +544,7 @@ class ElectroEditor(QMainWindow):
                 page = self.currectPage()
                 self.dialogLineEditHide()
                 if answer == 'yes' or answer == 'y':
-                    self.detachPage(page)
+                    self.removePage(page)
 
             validator = YesNoValidator(self)
             self.dialogLineEditShow("Remove current page?:",
@@ -543,7 +574,11 @@ class ElectroEditor(QMainWindow):
         if key == 16777249:  # CTRL
             self.keyCTRL = False
 
-        self.scene().keyReleaseEvent(event)
+        if key == 16777248:  # Shift
+            self.keyShift = False
+
+        if self.scene():
+            self.scene().keyReleaseEvent(event)
         return
 
 
@@ -553,18 +588,57 @@ class ElectroEditor(QMainWindow):
             string = group.indexName()
 
         def dialogOnReturn(text):
-            res = self.unpackGroupIndexName(text)
-            if not res:
+            unpackedName = self.unpackGroupIndexName(text)
+            if not unpackedName:
                 self.showStatusBarErrorMessage("Incorrect component name")
                 return
-            [prefixName, index] = res
-            group.setPrefixName(prefixName)
-            group.setIndex(index)
+
+            if len(unpackedName) == 2:
+                [prefixName, index] = unpackedName[:2]
+                group.setPrefixName(prefixName)
+                group.setIndex(index)
+                return
+
+            indexName = self.packGroupIndexName(unpackedName[:-1])
+            parentGroup = self.findGroupByIndexName(indexName, group)
+            if not parentGroup:
+                self.showStatusBarErrorMessage("Parent group %s is not exist" % indexName)
+                return
+
+            group.setParentComponentGroup(parentGroup)
+            group.setIndex(unpackedName[-1])
+            return
 
         validator = EditGroupValidator(self, group)
         self.dialogLineEditShow("Edit selected group. Enter component_prefix and press Space:",
                                 dialogOnReturn, string,
                                 validator=validator)
+
+
+    def showSwitchToSubComponent(self, group):
+        subGroups = self.subComponentGroups(group)
+        if not len(subGroups):
+            return
+
+        def dialogOnReturn(text):
+            subGroup = self.subComponentGroupByIndex(group, int(text))
+            if not subGroup:
+                self.showStatusBarErrorMessage("Component not found")
+                return
+            self.displayItem(subGroup)
+            return
+
+        subIndexes = []
+        promptText = "subComponents: "
+        separator = ""
+        for subGroup in subGroups:
+            promptText += "%s%s" % (separator, subGroup.indexName())
+            separator = " | "
+            subIndexes.append(subGroup.index())
+        promptText += ". Enter subComponent index:"
+
+        validator = IntValidator(self, subIndexes)
+        self.dialogLineEditShow(promptText, dialogOnReturn, validator=validator)
 
 
     def toClipboard(self, text):
@@ -649,7 +723,18 @@ class ElectroEditor(QMainWindow):
 
 
     def unpackGroupIndexName(self, indexName):
-        found = re.findall('[A-Za-z]+', indexName)
+        if re.findall('\.' , indexName):
+            parts = indexName.split('.')
+            prefix, index = self.unpackGroupIndexName(parts[0])
+            result = []
+            for part in parts[1:]:
+                if part.strip():
+                    result.append(int(part))
+            result.insert(0, int(index))
+            result.insert(0, prefix)
+            return result
+
+        found = re.findall('[A-Z]+', indexName)
         if not len(found):
             return None
         prefixName = found[0]
@@ -658,16 +743,38 @@ class ElectroEditor(QMainWindow):
         if not len(found):
             return None
         index = found[0]
-        return prefixName, int(index)
+        return [prefixName, int(index)]
+
+
+    def packGroupIndexName(self, parts):
+        indexName = "%s%d" % (parts[0], parts[1])
+        indexes = parts[2:]
+        for index in indexes:
+            indexName += ".%s" % index
+        return indexName
 
 
     def findGroupByIndexName(self, indexName, excludeGroup=None):
-        print("findGroupByIndexName %s" % indexName)
         res = self.unpackGroupIndexName(indexName)
         if not res:
             return None
-        [prefixName, index] = res
 
+        if len(res) > 2:
+            indexName = "%s%d" % (res[0], res[1])
+            group = self.findGroupByIndexName(indexName)
+            if not group:
+                return None
+
+            indexes = res[2:]
+            for index in indexes:
+                group = self.subComponentGroupByIndex(group, index)
+                if not group:
+                    return None
+            if excludeGroup and group.id() == excludeGroup.id():
+                return None
+            return group
+
+        [prefixName, index] = res[:2]
         for page in self.pages:
             groups = page.scene().graphicsItems(GROUP_TYPE)
             for group in groups:
@@ -676,7 +783,6 @@ class ElectroEditor(QMainWindow):
                 if not group.prefixName():
                     continue
                 if group.prefixName() == prefixName and group.index() == index:
-                    print("group found")
                     return group
         return None
 
@@ -706,6 +812,87 @@ class ElectroEditor(QMainWindow):
                 return supposedIndex
             supposedIndex += 1
         return supposedIndex
+
+
+    def findFreeSubComponentIndex(self, parentComponentGroup):
+        listIndexes = []
+        for page in self.pages:
+            groups = page.scene().allGraphicsItems(GROUP_TYPE)
+            for group in groups:
+                if group.parentComponentGroup() != parentComponentGroup:
+                    continue
+                index = group.index()
+                if index:
+                    listIndexes.append(index)
+
+        if not len(listIndexes):
+            return 1
+
+        listIndexes.sort()
+
+        # find free index
+        supposedIndex = 1
+        for busyIndex in listIndexes:
+            if busyIndex != supposedIndex:
+                return supposedIndex
+            supposedIndex += 1
+        return supposedIndex
+
+
+    def setUniqueComponentIndex(self, group):
+        parentComponentGroup = group.parentComponentGroup()
+        if not parentComponentGroup:
+            prefixName = group.prefixName()
+            if prefixName:
+                group.setIndex(self.findFreeComponentIndex(prefixName))
+            return
+        freeIndex = self.findFreeSubComponentIndex(parentComponentGroup)
+        group.setIndex(freeIndex)
+
+
+    def subComponentGroupByIndex(self, group, index):
+        subComponents = self.subComponentGroups(group)
+        for subComponent in subComponents:
+            if subComponent.index() == index:
+                return subComponent
+        return None
+
+
+    def subComponentGroups(self, parentGroup):
+        subComponents = []
+        for page in self.pages:
+            groups = page.scene().allGraphicsItems(GROUP_TYPE)
+            for group in groups:
+                pGroup = group.parentComponentGroup()
+                if not pGroup:
+                    continue
+                if pGroup != parentGroup:
+                    continue
+                subComponents.append(group)
+        return subComponents
+
+
+    def updateSubComponentsView(self, parentGroup):
+        parentGroup.updateView()
+        subComponents = self.subComponentGroups(parentGroup)
+        for subComponent in subComponents:
+            subComponent.updateView()
+            self.updateSubComponentsView(subComponent)
+
+
+    def graphicsItems(self, type=None):
+        items = []
+        for page in self.pages:
+            items += page.scene().graphicsItems(type)
+        return items
+
+
+    def updateAllComponentsView(self):
+        subComponents = []
+        for page in self.pages:
+            groups = page.scene().allGraphicsItems(GROUP_TYPE)
+            for group in groups:
+                group.updateView()
 
 
     def connectionCreate(self, linkPoint1, linkPoint2):
@@ -741,6 +928,29 @@ class ElectroEditor(QMainWindow):
         return None
 
 
+    def graphicsObjectFromJson(self, jsonText):
+        try:
+            ItemsProperties = json.loads(str(jsonText))
+        except:
+            print("Bad clipboard data")
+            return []
+
+        listUpdateParentComponents = []
+        items = []
+        for itemProp in ItemsProperties:
+            item = createGraphicsObjectByProperties(itemProp)
+            if item:
+                items.append(item)
+                if item.type() == GROUP_TYPE and 'parentComponentId' in itemProp:
+                    listUpdateParentComponents.append((item, itemProp['parentComponentId']))
+
+        for (group, parentId) in listUpdateParentComponents:
+            parentGroup = self.itemById(parentId)
+            group.setParentComponentGroup(parentGroup)
+
+        return items
+
+
     def connectionByLinkPoint(self, linkPoint):
         for conn in self.connectionsList:
             for point in conn.linkPoints():
@@ -772,9 +982,133 @@ class ElectroEditor(QMainWindow):
                 scene.itemAddToSelection(item)
 
 
+    def saveProject(self, fileName):
+        print("saveProject to %s" % fileName)
+        header = {"app": "Electro Schematic editor",
+                  "version": self.EDITOR_VERSION}
+
+        pagesData = []
+        for page in self.pages:
+            itemsData = []
+            items = page.scene().graphicsItems()
+            for item in items:
+                itemsData.append(item.properties())
+            pagesData.append({"num": page.num(),
+                              "name": page.name(),
+                              "items": itemsData})
+
+
+        connections = []
+        for connection in self.connectionsList:
+            connections.append(connection.properties())
+
+        data = {"header": header,
+                "pages": pagesData,
+                "connections": connections}
+        jsonText = json.dumps(data)
+
+        file = open(fileName, "w")
+        file.write(jsonText)
+        file.close()
+        self.showStatusBarMessage("project saved in %s" % fileName)
+
+
+    def openProject(self, fileName):
+        print("openProject from %s" % fileName)
+        file = open(fileName, "r")
+        fileContent = file.read()
+        file.close()
+
+        try:
+            project = json.loads(str(fileContent))
+        except:
+            print("Incorrect file data: can't parse JSON")
+            self.showStatusBarErrorMessage("Incorrect file data: can't parse JSON")
+            return
+
+        if not 'header' in project:
+            print("can't find 'header' section in JSON file")
+            self.showStatusBarErrorMessage("can't find 'header' section in JSON file")
+            return
+
+        if not 'pages' in project:
+            print("can't find 'pages' section in JSON file")
+            self.showStatusBarErrorMessage("can't find 'pages' section in JSON file")
+            return
+
+        if not 'connections' in project:
+            print("can't find 'connections' section in JSON file")
+            self.showStatusBarErrorMessage("can't find 'connections' section in JSON file")
+            return
+
+        self.resetEditor()
+
+        header = project['header']
+        pagesData = project['pages']
+        connectionsData = project['connections']
+
+        if header['version'] > self.EDITOR_VERSION:
+            print("incompatible versions")
+            self.showStatusBarErrorMessage("incompatible versions")
+            return
+
+        # create pages
+        itemLastId = 0
+        listUpdateParentComponents = []
+        for pageData in pagesData:
+            page = PageWidget(self, pageData['name'])
+            page.setNum(pageData['num'])
+            self.pages.append(page)
+            itemsData = pageData['items']
+            scene = page.scene()
+
+            for itemProp in itemsData:
+                item = createGraphicsObjectByProperties(itemProp)
+                if not item:
+                    continue
+
+                item._id = itemProp['id']
+                if item.id() > itemLastId:
+                    itemLastId = item.id()
+
+                if item.type() == GROUP_TYPE and 'parentComponentId' in itemProp:
+                    listUpdateParentComponents.append((item,
+                                                       itemProp['parentComponentId']))
+                scene.addGraphicsItem(item)
+
+        GraphicsItem.lastId = itemLastId + 1
+        # actualize parent to sub components
+        for (group, parentId) in listUpdateParentComponents:
+            parentGroup = self.itemById(parentId)
+            group.setParentComponentGroup(parentGroup)
+
+        self.actualizePagesTabs()
+
+        # actualize connections
+        connLastId = 0
+        for connData in connectionsData:
+            linkPoint1 = self.itemById(connData['p1'])
+            linkPoint2 = self.itemById(connData['p2'])
+            conn = Connection(self, linkPoint1, linkPoint2)
+            conn._id = connData['id']
+            if conn.id() > connLastId:
+                connLastId = conn.id()
+            self.connectionsList.append(conn)
+        Connection.lastId = connLastId + 1
+        self.projectFileName = fileName
+        self.update()
 
 
 
+    def resetEditor(self):
+        for page in self.pages:
+            page.remove()
+        self.pages = []
+        self.connectionsList = []
+        GraphicsItem.resetLastId()
+        PageWidget.resetLastId()
+        Connection.resetLastId()
+        self.actualizePagesTabs()
 
 
 def editorPath():
@@ -785,10 +1119,11 @@ def componentsPath():
     return "%s/components" % editorPath()
 
 
-page_last_id = 0
+
+
 
 class PageWidget(QWidget):
-
+    lastId = 0
 
     def __init__(self, editor, name):
         QWidget.__init__(self)
@@ -799,8 +1134,8 @@ class PageWidget(QWidget):
         layout.addWidget(self._sceneView)
         self.editor = editor
         self.setLayout(layout)
-        page_last_id += 1
-        self._id = page_last_id
+        PageWidget.lastId += 1
+        self._id = PageWidget.lastId
 
 
     def setNum(self, num):
@@ -809,6 +1144,7 @@ class PageWidget(QWidget):
         self.pageNum = num
 
 
+# TODO: remove id
     def id(self, num):
         return self._id
 
@@ -825,12 +1161,34 @@ class PageWidget(QWidget):
         self._name = name
 
 
+    @staticmethod
+    def resetLastId():
+        PageWidget.lastId = 0
+
+
     def scene(self):
         return self._sceneView.scene()
 
 
     def sceneView(self):
         return self._sceneView
+
+
+    def remove(self):
+        scene = self.scene()
+        scene.removeGraphicsItems(scene.graphicsItems())
+        self.editor.pages.remove(self)
+
+
+    def updateLinkPoints(self):
+        print("updateLinkPoints num:%d" % self.num())
+        scene = self.scene()
+        linkPoints = scene.graphicsItems(LINK_TYPE)
+        if linkPoints:
+            for linkPoint in linkPoints:
+                print("update linkPoint %d" % linkPoint.id())
+                linkPoint.updateView(True)
+
 
 
 class Component(QListWidgetItem):
