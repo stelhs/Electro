@@ -130,7 +130,7 @@ class ElectroScene(QGraphicsScene):
         if viewHeight > pix(self.sceneRectSize.y()):
             viewHeight = pix(self.sceneRectSize.y())
 
-        qp.setPen(QPen(QColor(230, 230, 230), 1))
+        qp.setPen(QPen(QColor(245, 245, 245), 1))
 
         x_step = self.gridSize
         y_step = self.gridSize

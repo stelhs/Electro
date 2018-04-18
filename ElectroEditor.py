@@ -397,11 +397,14 @@ class ElectroEditor(QMainWindow):
 
         # save project
         if self.keyCTRL and key == 83:  # CTRL+S
-            if not self.projectFileName:
+            if not self.projectFileName or self.keyShift:
                 file = str(QFileDialog.getSaveFileName(None, "Save project",
                                             filter="Electro schematic file (*.es)"))
                 if not file:
                     return
+
+                if file[-3:] != '.es':
+                    file += '.es'
                 self.projectFileName = file
 
             self.saveProject(self.projectFileName)
@@ -608,6 +611,13 @@ class ElectroEditor(QMainWindow):
             string = group.indexName()
 
         def dialogOnReturn(text):
+            if not len(text):
+                group.setIndex(0)
+                group.setPrefixName("")
+                group.setParentComponentGroup(None)
+                group.updateView()
+                return
+
             unpackedName = self.unpackGroupIndexName(text)
             if not unpackedName:
                 self.showStatusBarErrorMessage("Incorrect component name")
@@ -617,6 +627,7 @@ class ElectroEditor(QMainWindow):
                 [prefixName, index] = unpackedName[:2]
                 group.setPrefixName(prefixName)
                 group.setIndex(index)
+                group.setParentComponentGroup(None)
                 return
 
             indexName = self.packGroupIndexName(unpackedName[:-1])
@@ -802,6 +813,8 @@ class ElectroEditor(QMainWindow):
                     continue
                 if not group.prefixName():
                     continue
+                if group.parentComponentGroup():
+                    continue
                 if group.prefixName() == prefixName and group.index() == index:
                     return group
         return None
@@ -816,7 +829,9 @@ class ElectroEditor(QMainWindow):
                 if not group.prefixName():
                     continue
                 if group.prefixName() != prefixName:
-                     continue
+                    continue
+                if group.parentComponentGroup():
+                    continue
                 if group.index():
                     listIndexes.append(group.index())
 
@@ -935,6 +950,8 @@ class ElectroEditor(QMainWindow):
         remoteLinkPoint = linkPoint.remoteLinkPoint()
         if not remoteLinkPoint:
             return False
+        self.resetSelectionItems()
+        remoteLinkPoint.scene().itemAddToSelection(remoteLinkPoint)
         self.displayItem(remoteLinkPoint)
         return True
 

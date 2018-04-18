@@ -98,7 +98,7 @@ class EditGroupValidator(DialogLineEditValidator):
             return QValidator.Invalid, pos
 
         if not len(string):
-            return QValidator.Intermediate, pos
+            return QValidator.Acceptable, pos
 
         # string can not begin with digit
         if string.isdigit():
