@@ -25,7 +25,6 @@ class GraphicsItemLink(GraphicsItem):
 
 
     def setScene(self, scene):
-        print("setScene")
         self._scene = scene
 
         for item in self.items():
@@ -111,7 +110,6 @@ class GraphicsItemLink(GraphicsItem):
         x = properties['arrowPoint']['x']
         y = properties['arrowPoint']['y']
         arrowPos = QPointF(x, y) + self.pos()
-        print("arrowPos = %s" % arrowPos)
         self.setArrowPos(arrowPos)
 
 

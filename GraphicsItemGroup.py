@@ -22,6 +22,8 @@ class GraphicsItemGroup(GraphicsItem):
         self.indexNameLabel.setZValue(0)
         self._dimensions = None
         self._parentComponentGroup = None
+        self.needToRecalculateBoundingRect = True
+        self._boundingRect = None
 
         self.r1 = None
         self.r2 = None
@@ -91,9 +93,25 @@ class GraphicsItemGroup(GraphicsItem):
         self.updateView()
 
 
+    def highlight(self):
+        GraphicsItem.highlight(self)
+        parentGroup = self.parentComponentGroup()
+        if parentGroup:
+            parentGroup.highlight()
+
+
+    def unHighlight(self):
+        GraphicsItem.unHighlight(self)
+        parentGroup = self.parentComponentGroup()
+        if parentGroup:
+            parentGroup.unHighlight()
+
+
     def addItems(self, items):
         if len(items) < 2:
             return False
+
+        self.needToRecalculateBoundingRect = True
 
         for item in items:
             item.removeFromQScene()
@@ -166,6 +184,9 @@ class GraphicsItemGroup(GraphicsItem):
 
 
     def boundingRect(self):
+        if not self.needToRecalculateBoundingRect:
+            return self._boundingRect
+
         poligon = QPolygonF()
         for item in self.items():
             rect = item.boundingRect()
@@ -179,8 +200,11 @@ class GraphicsItemGroup(GraphicsItem):
             return None
 
         sceneRect = poligon.boundingRect()
-        return QRectF(sceneRect.topLeft() - self.pos(),
+        rect = QRectF(sceneRect.topLeft() - self.pos(),
                       sceneRect.bottomRight() - self.pos())
+        self._boundingRect = rect
+        self.needToRecalculateBoundingRect = False
+        return rect
 
 
     def properties(self):
@@ -287,6 +311,7 @@ class GraphicsItemGroup(GraphicsItem):
 
 
     def rotate(self, center, angle, parentOldMountPoint=None):
+        self.needToRecalculateBoundingRect = True
         if parentOldMountPoint:
             delta = self.parent().mountPoint - parentOldMountPoint
             self.mountPoint -= delta

@@ -57,6 +57,7 @@ class ElectroEditor(QMainWindow):
             page = self.tabWidget.widget(index)
             page.updateLinkPoints()
             self.setEditorTool(page.scene().currentTool())
+            self.focusOutEvent(None)
 
         # create left panel
         leftPanel = QWidget()
@@ -417,6 +418,21 @@ class ElectroEditor(QMainWindow):
             if not file:
                 return
             self.openProject(file)
+            return
+
+        # new project
+        if self.keyCTRL and key == 78:  # CTRL+N
+            def dialogOnReturn(answer):
+                if answer != 'yes' and answer != 'y':
+                    return
+                self.resetEditor()
+                self.addPage("Undefined")
+
+            validator = YesNoValidator(self)
+            self.dialogLineEditShow("Create new Project?:",
+                                    dialogOnReturn,
+                                    "no", selectAll=True,
+                                    validator=validator)
             return
 
         # search item by indexName or id
@@ -896,14 +912,7 @@ class ElectroEditor(QMainWindow):
     def subComponentGroups(self, parentGroup):
         subComponents = []
         for page in self.pages:
-            groups = page.scene().allGraphicsItems(GROUP_TYPE)
-            for group in groups:
-                pGroup = group.parentComponentGroup()
-                if not pGroup:
-                    continue
-                if pGroup != parentGroup:
-                    continue
-                subComponents.append(group)
+            subComponents += page.scene().subComponentGroups(parentGroup)
         return subComponents
 
 
@@ -1112,6 +1121,7 @@ class ElectroEditor(QMainWindow):
                     listUpdateParentComponents.append((item,
                                                        itemProp['parentComponentId']))
                 scene.addGraphicsItem(item)
+            scene.update()
 
         GraphicsItem.lastId = itemLastId + 1
         # actualize parent to sub components
@@ -1149,7 +1159,6 @@ class ElectroEditor(QMainWindow):
 
 
     def focusOutEvent(self, event):
-        print("editor: focusOutEvent")
         self.keyCTRL = False
         self.keyShift = False
         for page in self.pages:

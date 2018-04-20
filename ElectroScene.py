@@ -61,7 +61,6 @@ class ElectroScene(QGraphicsScene):
 
         self.setGrid(MAX_GRID_SIZE)
 
-        self.noRotate = False
 
 
         # configure graphic paper
@@ -508,6 +507,11 @@ class ElectroScene(QGraphicsScene):
         self.editor.showGroupInfo(None)
         for item in items:
             item.unHighlight()
+            if item.type() == GROUP_TYPE:
+                subItems = self.subComponentGroups(item)
+                for subItem in subItems:
+                    subItem.unHighlight()
+
             if not item.isSelected():
                 item.markPointsHide()
 
@@ -516,6 +520,10 @@ class ElectroScene(QGraphicsScene):
             return
         item.markPointsShow()
         item.highlight()
+        if item.type() == GROUP_TYPE:
+            subItems = self.subComponentGroups(item)
+            for subItem in subItems:
+                subItem.highlight()
         self.editor.setStatusGraphicsItemInfo(item)
         self.editor.showGroupInfo(item)
 
@@ -589,7 +597,7 @@ class ElectroScene(QGraphicsScene):
 
 
     def mouseReleaseEvent(self, ev):
-        self.intersectionPointsShow()
+        self.update()
         if self.mode == 'pasteFromClipboard':
             return
 
@@ -682,6 +690,7 @@ class ElectroScene(QGraphicsScene):
             items = self.selectedGraphicsItems()
             self.history.removeItems(items)
             self.removeGraphicsItems(items)
+            self.update()
             return
 
         if key == 16777248:  # Shift
@@ -1158,6 +1167,7 @@ class ElectroScene(QGraphicsScene):
 
 
     def removeGraphicsItem(self, item):
+        print("removeGraphicsItem %d" % item.id())
         self.graphicsItemsList.remove(item)
         if item.type() == GROUP_TYPE:
             subComponents = self.editor.subComponentGroups(item)
@@ -1166,7 +1176,6 @@ class ElectroScene(QGraphicsScene):
                 self.editor.setUniqueComponentIndex(subComponent)
                 self.editor.updateSubComponentsView(subComponent)
         item.removeFromQScene()
-        self.intersectionPointsShow()
 
 
     def removeGraphicsItems(self, items):
@@ -1243,6 +1252,10 @@ class ElectroScene(QGraphicsScene):
                 line.setTypeLine('trace')
 
 
+    def update(self):
+        self.intersectionPointsShow()
+
+
     def intersectionPointsShow(self):
         if self.interceptionPoints:
             for point in self.interceptionPoints:
@@ -1314,6 +1327,19 @@ class ElectroScene(QGraphicsScene):
             pointEllipse.setRect(QRectF(0, 0, 6, 6))
             self.addItem(pointEllipse)
             self.interceptionPoints.append(pointEllipse)
+
+
+    def subComponentGroups(self, parentGroup):
+        subComponents = []
+        groups = self.allGraphicsItems(GROUP_TYPE)
+        for group in groups:
+            pGroup = group.parentComponentGroup()
+            if not pGroup:
+                continue
+            if pGroup != parentGroup:
+                continue
+            subComponents.append(group)
+        return subComponents
 
 
     def __str__(self):
