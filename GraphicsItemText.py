@@ -24,6 +24,7 @@ class GraphicsItemText(GraphicsItem, QGraphicsTextItem):
         self.highLightRect.setPen(QPen(self.highLightPen.color(), 1,
                                   Qt.SolidLine, Qt.RoundCap))
 
+
     def type(self):
         return TEXT_TYPE
 
@@ -117,8 +118,8 @@ class GraphicsItemText(GraphicsItem, QGraphicsTextItem):
 
     def posFromParent(self):
         if not self.parent():
-            return QGraphicsRectItem.pos(self)
-        return QGraphicsRectItem.pos(self) - self.parent().pos()
+            return self.pos()
+        return self.pos() - self.parent().pos()
 
 
     def points(self):
@@ -229,13 +230,15 @@ class GraphicsItemText(GraphicsItem, QGraphicsTextItem):
         if typeByName(properties['type']) != TEXT_TYPE:
             return
 
-        GraphicsItem.setProperties(self, properties)
         self._angle = properties['angle']
+        GraphicsItem.setProperties(self, properties)
         self.setRect(QRectF(0, 0,
                             properties['rectSize']['w'],
                             properties['rectSize']['h']))
         self.setText(properties['text'])
         QGraphicsTextItem.setRotation(self, self._angle % 180)
+
+
 
 
     def rotate(self, center, angle):
