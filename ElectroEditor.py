@@ -1191,7 +1191,7 @@ class PageWidget(QWidget):
 
 
     def name(self):
-        return self._name
+        return unicode(self._name)
 
 
     def setName(self, name):

@@ -56,8 +56,6 @@ class GraphicsItemGroup(GraphicsItem):
 
 
     def setIndex(self, index):
-        if not self.prefixName():
-            return
         self._index = int(index)
         self.updateView()
 
