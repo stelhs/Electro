@@ -104,3 +104,8 @@ class ElectroSceneView(QGraphicsView):
 
         self.editor.keyReleaseEvent(event)
 
+    def focusOutEvent(self, event):
+        self.editor.focusOutEvent(event)
+
+
+

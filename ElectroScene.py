@@ -30,7 +30,6 @@ class ElectroScene(QGraphicsScene):
         self.drawingText = None
         self.newTextItem = None  # temporary storage new textItem
         self.insertedLinkPoint = None
-        self.multiSelected = False  # Shift key is pressed
         self.selectingByMouse = None  # select rectangular area for selecting items
         self.movingItem = False  # Moving selected items mode
         self.movedPointItems = []  # List of Moving point items
@@ -249,14 +248,14 @@ class ElectroScene(QGraphicsScene):
     def mousePressEventSelectItem(self, ev):
         item = self.graphicItemByCoordinate(ev.scenePos())
         if not item:
-            if not self.multiSelected:
+            if not self.keyShift:
                 self.resetSelectionItems()
             return
 
-        if not item.isSelected() and len(self.selectedGraphicsItems()) and not self.multiSelected:
+        if not item.isSelected() and len(self.selectedGraphicsItems()) and not self.keyShift:
             self.resetSelectionItems()
 
-        if self.multiSelected:
+        if self.keyShift:
             if not item.isSelected():
                 self.itemAddToSelection(item)
             else:
@@ -687,7 +686,6 @@ class ElectroScene(QGraphicsScene):
 
         if key == 16777248:  # Shift
             print("Shift press")
-            self.multiSelected = True
             self.keyShift = True
             return
 

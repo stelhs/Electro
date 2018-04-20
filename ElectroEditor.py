@@ -1148,6 +1148,16 @@ class ElectroEditor(QMainWindow):
         self.actualizePagesTabs()
 
 
+    def focusOutEvent(self, event):
+        print("editor: focusOutEvent")
+        self.keyCTRL = False
+        self.keyShift = False
+        for page in self.pages:
+            scene = page.scene()
+            scene.keyCTRL = False
+            scene.keyShift = False
+
+
 def editorPath():
     return os.path.dirname(os.path.realpath(sys.argv[0]))
 
