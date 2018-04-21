@@ -243,15 +243,14 @@ class GraphicsItemLink(GraphicsItem):
 
 
 class Connection():
-    lastId = 0
+    idList = []
     def __init__(self, editor, linkPoint1, linkPoint2):
         global connection_last_id
         self._editor = editor
         self._linkPoints = []
         self._linkPoints.append(linkPoint1)
         self._linkPoints.append(linkPoint2)
-        Connection.lastId += 1
-        self._id = Connection.lastId
+        self.generateNewId()
         for linkPoint in self._linkPoints:
             linkPoint.setConnection(self)
 
@@ -260,9 +259,27 @@ class Connection():
         return self._id
 
 
+    def generateNewId(self):
+        self._id = Connection.getFreeId()
+
+
+    def setId(self, id):
+        Connection.idList.remove(self.id())
+        self._id = id
+        Connection.idList.append(id)
+
+
     @staticmethod
-    def resetLastId():
-        Connection.lastId = 0
+    def getFreeId():
+        Connection.idList.sort()
+        freeId = 1
+        for id in Connection.idList:
+            if id != freeId:
+                Connection.idList.append(freeId)
+                return freeId
+            freeId += 1
+        Connection.idList.append(freeId)
+        return freeId
 
 
     def linkPoints(self):
@@ -270,6 +287,10 @@ class Connection():
 
 
     def remove(self):
+        if self.id() in Connection.idList:
+            Connection.idList.remove(self.id())
+        self._id = 0
+
         for linkPoint in self._linkPoints:
             linkPoint.setConnection(None)
         self._editor.connectionsList.remove(self)

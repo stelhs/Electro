@@ -97,7 +97,7 @@ def createGraphicsObjectByProperties(ogjectProperties):
 
 
 class GraphicsItem():
-    lastId = 0
+    idList = []
     MARK_SIZE = 8
     normalPen = QPen(QColor(0, 0, 200), 2, Qt.SolidLine, Qt.RoundCap)
     selectedPen = QPen(Qt.magenta, 3, Qt.SolidLine, Qt.RoundCap)
@@ -111,9 +111,8 @@ class GraphicsItem():
         self._name = ""
         self._parentItem = None
         self.mouseMoveDelta = None
-
-        GraphicsItem.lastId += 1
-        self._id = GraphicsItem.lastId
+        self.generateNewId()
+        print("new item was created %d" % self.id())
 
 
     def type(self):
@@ -136,9 +135,27 @@ class GraphicsItem():
         return self._name
 
 
+    def generateNewId(self):
+        self._id = GraphicsItem.getFreeId()
+
+
+    def setId(self, id):
+        GraphicsItem.idList.remove(self.id())
+        self._id = id
+        GraphicsItem.idList.append(id)
+
+
     @staticmethod
-    def resetLastId():
-        GraphicsItem.lastId = 0
+    def getFreeId():
+        GraphicsItem.idList.sort()
+        freeId = 1
+        for id in GraphicsItem.idList:
+            if id != freeId:
+                GraphicsItem.idList.append(freeId)
+                return freeId
+            freeId += 1
+        GraphicsItem.idList.append(freeId)
+        return freeId
 
 
     def addr(self):
@@ -341,6 +358,18 @@ class GraphicsItem():
         scene = self.scene()
         if scene:
             scene.removeItem(self)
+
+
+    def remove(self):
+        print("remove %d" % self.id())
+        for item in self.graphicsItemsList:
+            if item.id() in GraphicsItem.idList:
+                GraphicsItem.idList.remove(item.id())
+                item._id = 0
+
+        if self.id() in GraphicsItem.idList:
+            GraphicsItem.idList.remove(self.id())
+        self._id = 0
 
 
     def __str__(self):

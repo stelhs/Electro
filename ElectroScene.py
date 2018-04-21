@@ -680,6 +680,22 @@ class ElectroScene(QGraphicsScene):
         return item.root()
 
 
+    def keyShiftPress(self):
+        self.keyShift = True
+
+
+    def keyCTRLPress(self):
+        self.keyCTRL = True
+
+
+    def keyShiftRelease(self):
+        self.keyShift = False
+
+
+    def keyCTRLRelease(self):
+        self.keyCTRL = False
+
+
     def keyPressEvent(self, event):
         key = event.key()
         if self.mode == 'textEdit':
@@ -691,15 +707,6 @@ class ElectroScene(QGraphicsScene):
             self.history.removeItems(items)
             self.removeGraphicsItems(items)
             self.update()
-            return
-
-        if key == 16777248:  # Shift
-            print("Shift press")
-            self.keyShift = True
-            return
-
-        if key == 16777249:  # CTRL
-            self.keyCTRL = True
             return
 
         if not self.keyCTRL and not self.keyShift:
@@ -836,17 +843,6 @@ class ElectroScene(QGraphicsScene):
 
 
     def keyReleaseEvent(self, event):
-        key = event.key()
-        if key == 16777248:  # Shift
-            print("Shift unpress")
-            self.multiSelected = False
-            self.keyShift = False
-            return
-
-        if key == 16777249:  # CTRL
-            self.keyCTRL = False
-            return
-
         QGraphicsScene.keyReleaseEvent(self, event)
 
 
@@ -1176,6 +1172,7 @@ class ElectroScene(QGraphicsScene):
                 self.editor.setUniqueComponentIndex(subComponent)
                 self.editor.updateSubComponentsView(subComponent)
         item.removeFromQScene()
+        item.remove()
 
 
     def removeGraphicsItems(self, items):

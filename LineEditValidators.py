@@ -146,8 +146,8 @@ class EditGroupValidator(DialogLineEditValidator):
         # check for name's busyness
         group = self.editor.findGroupByIndexName(string, self.group)
         if group:
-            self.sendError("component '%s' already exists" % string)
-            return QValidator.Intermediate, pos
+            self.sendOkMessage("component '%s' already exists! Compnent will be overwritten!" % string)
+            return QValidator.Acceptable, pos
 
         self.sendOkMessage("OK")
         return QValidator.Acceptable, pos

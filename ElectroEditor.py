@@ -57,7 +57,10 @@ class ElectroEditor(QMainWindow):
             page = self.tabWidget.widget(index)
             page.updateLinkPoints()
             self.setEditorTool(page.scene().currentTool())
-            self.focusOutEvent(None)
+#            for page in self.pages:
+#                scene = page.scene()
+#                scene.keyShiftRelease()
+#                scene.keyCTRLRelease()
 
         # create left panel
         leftPanel = QWidget()
@@ -195,6 +198,7 @@ class ElectroEditor(QMainWindow):
 
     def removeComponent(self, component):
         self.componentListWidget.takeItem(self.componentListWidget.row(component))
+        self.componentList.remove(component)
         component.removeFiles()
         self.scene().abortPastComponent()
         self.componentListWidget.clearSelection()
@@ -343,9 +347,13 @@ class ElectroEditor(QMainWindow):
 
         if key == 16777249:  # CTRL
             self.keyCTRL = True
+            for page in self.pages:
+                page.scene().keyCTRLPress()
 
         if key == 16777248:  # Shift
             self.keyShift = True
+            for page in self.pages:
+                page.scene().keyShiftPress()
 
         # add new page
         if self.keyCTRL and key == 80:  # CTRL+P
@@ -612,9 +620,13 @@ class ElectroEditor(QMainWindow):
 
         if key == 16777249:  # CTRL
             self.keyCTRL = False
+            for page in self.pages:
+                page.scene().keyCTRLRelease()
 
         if key == 16777248:  # Shift
             self.keyShift = False
+            for page in self.pages:
+                page.scene().keyShiftRelease()
 
         if self.scene():
             self.scene().keyReleaseEvent(event)
@@ -639,21 +651,38 @@ class ElectroEditor(QMainWindow):
                 self.showStatusBarErrorMessage("Incorrect component name")
                 return
 
+            # if component not subcomponent
             if len(unpackedName) == 2:
                 [prefixName, index] = unpackedName[:2]
+
+                # change index between busyness and current index
+                existGroup = self.findGroupByIndexName(text, group)
+                if existGroup:
+                    existGroup.setPrefixName(group.prefixName())
+                    existGroup.setIndex(group.index())
+                    self.updateSubComponentsView(existGroup)
                 group.setPrefixName(prefixName)
                 group.setIndex(index)
                 group.setParentComponentGroup(None)
+                self.updateSubComponentsView(group)
                 return
 
+            # if component is subcomponent
             indexName = self.packGroupIndexName(unpackedName[:-1])
             parentGroup = self.findGroupByIndexName(indexName, group)
             if not parentGroup:
                 self.showStatusBarErrorMessage("Parent group %s is not exist" % indexName)
                 return
 
+            # change index between busyness and current index
+            existGroup = self.findGroupByIndexName(text, group)
+            if existGroup:
+                existGroup.setIndex(group.index())
+                self.updateSubComponentsView(existGroup)
+
             group.setParentComponentGroup(parentGroup)
             group.setIndex(unpackedName[-1])
+            self.updateSubComponentsView(group)
             return
 
         validator = EditGroupValidator(self, group)
@@ -672,7 +701,14 @@ class ElectroEditor(QMainWindow):
             if not subGroup:
                 self.showStatusBarErrorMessage("Component not found")
                 return
+            self.resetSelectionItems()
+            scene = subGroup.scene()
+            scene.itemAddToSelection(subGroup)
             self.displayItem(subGroup)
+            return
+
+        if len(subGroups) == 1:
+            self.displayItem(subGroups[0])
             return
 
         subIndexes = []
@@ -1099,7 +1135,6 @@ class ElectroEditor(QMainWindow):
             return
 
         # create pages
-        itemLastId = 0
         listUpdateParentComponents = []
         for pageData in pagesData:
             page = PageWidget(self, pageData['name'])
@@ -1113,17 +1148,13 @@ class ElectroEditor(QMainWindow):
                 if not item:
                     continue
 
-                item._id = itemProp['id']
-                if item.id() > itemLastId:
-                    itemLastId = item.id()
-
+                item.setId(itemProp['id'])
                 if item.type() == GROUP_TYPE and 'parentComponentId' in itemProp:
                     listUpdateParentComponents.append((item,
                                                        itemProp['parentComponentId']))
                 scene.addGraphicsItem(item)
             scene.update()
 
-        GraphicsItem.lastId = itemLastId + 1
         # actualize parent to sub components
         for (group, parentId) in listUpdateParentComponents:
             parentGroup = self.itemById(parentId)
@@ -1152,9 +1183,6 @@ class ElectroEditor(QMainWindow):
             page.remove()
         self.pages = []
         self.connectionsList = []
-        GraphicsItem.resetLastId()
-        PageWidget.resetLastId()
-        Connection.resetLastId()
         self.actualizePagesTabs()
 
 
@@ -1163,8 +1191,8 @@ class ElectroEditor(QMainWindow):
         self.keyShift = False
         for page in self.pages:
             scene = page.scene()
-            scene.keyCTRL = False
-            scene.keyShift = False
+            scene.keyShiftRelease()
+            scene.keyCTRLRelease()
 
 
 def editorPath():
@@ -1179,8 +1207,6 @@ def componentsPath():
 
 
 class PageWidget(QWidget):
-    lastId = 0
-
     def __init__(self, editor, name):
         QWidget.__init__(self)
         global page_last_id
@@ -1190,19 +1216,12 @@ class PageWidget(QWidget):
         layout.addWidget(self._sceneView)
         self.editor = editor
         self.setLayout(layout)
-        PageWidget.lastId += 1
-        self._id = PageWidget.lastId
 
 
     def setNum(self, num):
         scene = self.scene()
         scene.setNum(num)
         self.pageNum = num
-
-
-# TODO: remove id
-    def id(self, num):
-        return self._id
 
 
     def num(self):
@@ -1215,11 +1234,6 @@ class PageWidget(QWidget):
 
     def setName(self, name):
         self._name = name
-
-
-    @staticmethod
-    def resetLastId():
-        PageWidget.lastId = 0
 
 
     def scene(self):
