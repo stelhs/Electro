@@ -230,11 +230,13 @@ class GraphicsItemGroup(GraphicsItem):
         return properties
 
 
-    def setProperties(self, properties):
+    def setProperties(self, properties, setId=False):
         properties = copy.deepcopy(properties)
         if typeByName(properties['type']) != GROUP_TYPE:
             return
 
+        if setId:
+            self.setId(properties['id'])
         self.markPointsHide()
         self.setName(properties['name'])
         if 'prefixName' in properties:
@@ -280,7 +282,7 @@ class GraphicsItemGroup(GraphicsItem):
                 if typeByName(itemProperties['type']) == GROUP_TYPE:
                     item = GraphicsItemGroup()
 
-                item.setProperties(itemProperties)
+                item.setProperties(itemProperties, setId)
                 newItems.append(item)
 
         self.addItems(newItems)

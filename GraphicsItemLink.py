@@ -11,9 +11,12 @@ class GraphicsItemLink(GraphicsItem):
         self._scene = None
 
         self.line = GraphicsItemLine()
+        self.line.removeId()
         self.ellipse = GraphicsItemEllipse()
+        self.ellipse.removeId()
         self.ellipse.setBrush(QBrush(self.normalPen.color()))
         self.addrText = GraphicsItemText()
+        self.addrText.removeId()
         self.addItems([self.line, self.ellipse, self.addrText])
 
         if pos:
@@ -56,6 +59,10 @@ class GraphicsItemLink(GraphicsItem):
         self.line.setP1(pos)
         self.setArrowPos(pos + delta)
         self.updateView()
+
+
+    def setPen(self, pen):
+        self.ellipse.setPen(pen)
 
 
     def setArrowPos(self, arrowPos):
@@ -105,8 +112,8 @@ class GraphicsItemLink(GraphicsItem):
         return properties;
 
 
-    def setProperties(self, properties):
-        GraphicsItem.setProperties(self, properties)
+    def setProperties(self, properties, setId=False):
+        GraphicsItem.setProperties(self, properties, setId)
         x = properties['arrowPoint']['x']
         y = properties['arrowPoint']['y']
         arrowPos = QPointF(x, y) + self.pos()

@@ -739,7 +739,10 @@ class ElectroEditor(QMainWindow):
 
 
     def setStatusCursorCoordinates(self, point):
-        quadrant = self.scene().quadrantByPos(point)
+        scene = self.scene()
+        if not scene:
+            return
+        quadrant = scene.quadrantByPos(point)
         self.currentCursorCoordinatesLabel.setText("%s | x: %d, y: %d" %
                                                    (quadrant,
                                                     point.x(),
@@ -1144,11 +1147,10 @@ class ElectroEditor(QMainWindow):
             scene = page.scene()
 
             for itemProp in itemsData:
-                item = createGraphicsObjectByProperties(itemProp)
+                item = createGraphicsObjectByProperties(itemProp, True)
                 if not item:
                     continue
 
-                item.setId(itemProp['id'])
                 if item.type() == GROUP_TYPE and 'parentComponentId' in itemProp:
                     listUpdateParentComponents.append((item,
                                                        itemProp['parentComponentId']))
@@ -1161,6 +1163,7 @@ class ElectroEditor(QMainWindow):
             group.setParentComponentGroup(parentGroup)
 
         self.actualizePagesTabs()
+
 
         # actualize connections
         connLastId = 0
@@ -1179,7 +1182,11 @@ class ElectroEditor(QMainWindow):
 
 
     def resetEditor(self):
+        pagesCopy = []
         for page in self.pages:
+            pagesCopy.append(page)
+
+        for page in pagesCopy:
             page.remove()
         self.pages = []
         self.connectionsList = []

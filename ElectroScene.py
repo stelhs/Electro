@@ -1148,6 +1148,7 @@ class ElectroScene(QGraphicsScene):
             item.setParent(None)
             if item.type() == GROUP_TYPE and item.prefixName():
                 self.editor.setUniqueComponentIndex(item)
+            item.generateNewId()
             self.addGraphicsItem(item)
             item.setPos(pos)
 
@@ -1176,7 +1177,10 @@ class ElectroScene(QGraphicsScene):
 
 
     def removeGraphicsItems(self, items):
+        copyItems = []
         for item in items:
+            copyItems.append(item)
+        for item in copyItems:
             self.removeGraphicsItem(item)
 
 
@@ -1250,6 +1254,7 @@ class ElectroScene(QGraphicsScene):
 
 
     def update(self):
+        QGraphicsScene.update(self)
         self.intersectionPointsShow()
 
 

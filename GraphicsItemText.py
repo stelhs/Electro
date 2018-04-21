@@ -225,13 +225,13 @@ class GraphicsItemText(GraphicsItem, QGraphicsTextItem):
         return properties
 
 
-    def setProperties(self, properties):
+    def setProperties(self, properties, setId=False):
         properties = copy.deepcopy(properties)
         if typeByName(properties['type']) != TEXT_TYPE:
             return
 
         self._angle = properties['angle']
-        GraphicsItem.setProperties(self, properties)
+        GraphicsItem.setProperties(self, properties, setId)
         self.setRect(QRectF(0, 0,
                             properties['rectSize']['w'],
                             properties['rectSize']['h']))

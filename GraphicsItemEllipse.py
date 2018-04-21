@@ -159,12 +159,12 @@ class GraphicsItemEllipse(GraphicsItem, QGraphicsEllipseItem):
         return properties
 
 
-    def setProperties(self, properties):
+    def setProperties(self, properties, setId=False):
         properties = copy.deepcopy(properties)
         if typeByName(properties['type']) != ELLIPSE_TYPE:
             return
 
-        GraphicsItem.setProperties(self, properties)
+        GraphicsItem.setProperties(self, properties, setId)
         rect = QRectF(0, 0,
                       properties['rectSize']['w'],
                       properties['rectSize']['h'])

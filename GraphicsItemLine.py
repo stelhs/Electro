@@ -177,13 +177,13 @@ class GraphicsItemLine(GraphicsItem, QGraphicsLineItem):
         return properties
 
 
-    def setProperties(self, properties):
+    def setProperties(self, properties, setId=False):
         properties = copy.deepcopy(properties)
         if typeByName(properties['type']) != LINE_TYPE:
             return
 
         self.setTypeLine(properties['typeLine'])
-        GraphicsItem.setProperties(self, properties)
+        GraphicsItem.setProperties(self, properties, setId)
         line = QLineF(QPointF(properties['p1']['x'], properties['p1']['y']),
                       QPointF(properties['p2']['x'], properties['p2']['y']))
         self.setLine(line)

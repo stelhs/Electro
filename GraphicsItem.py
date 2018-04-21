@@ -59,7 +59,7 @@ def mapToGrid(arg, gridSize):
         return rect
 
 
-def createGraphicsObjectByProperties(ogjectProperties):
+def createGraphicsObjectByProperties(ogjectProperties, withId=False):
     import GraphicsItemLine
     import GraphicsItemRect
     import GraphicsItemEllipse
@@ -70,27 +70,27 @@ def createGraphicsObjectByProperties(ogjectProperties):
     item = None
     if typeByName(ogjectProperties['type']) == GROUP_TYPE:
         item = GraphicsItemGroup.GraphicsItemGroup()
-        item.setProperties(ogjectProperties)
+        item.setProperties(ogjectProperties, withId)
 
     if typeByName(ogjectProperties['type']) == LINE_TYPE:
         item = GraphicsItemLine.GraphicsItemLine()
-        item.setProperties(ogjectProperties)
+        item.setProperties(ogjectProperties, withId)
 
     if typeByName(ogjectProperties['type']) == RECT_TYPE:
         item = GraphicsItemRect.GraphicsItemRect()
-        item.setProperties(ogjectProperties)
+        item.setProperties(ogjectProperties, withId)
 
     if typeByName(ogjectProperties['type']) == ELLIPSE_TYPE:
         item = GraphicsItemEllipse.GraphicsItemEllipse()
-        item.setProperties(ogjectProperties)
+        item.setProperties(ogjectProperties, withId)
 
     if typeByName(ogjectProperties['type']) == TEXT_TYPE:
         item = GraphicsItemText.GraphicsItemText()
-        item.setProperties(ogjectProperties)
+        item.setProperties(ogjectProperties, withId)
 
     if typeByName(ogjectProperties['type']) == LINK_TYPE:
         item = GraphicsItemLink.GraphicsItemLink()
-        item.setProperties(ogjectProperties)
+        item.setProperties(ogjectProperties, withId)
 
     return item
 
@@ -140,9 +140,18 @@ class GraphicsItem():
 
 
     def setId(self, id):
+        print("for %d set %d" % (self.id(), id))
         GraphicsItem.idList.remove(self.id())
         self._id = id
         GraphicsItem.idList.append(id)
+
+
+    def removeId(self):
+        if not self._id:
+            return
+        print("remove id %d" % self.id())
+        GraphicsItem.idList.remove(self.id())
+        self._id = 0
 
 
     @staticmethod
@@ -318,7 +327,7 @@ class GraphicsItem():
         return properties;
 
 
-    def setProperties(self, properties):
+    def setProperties(self, properties, setId=False):
         properties = copy.deepcopy(properties)
         self.resetSelection()
 
@@ -327,8 +336,9 @@ class GraphicsItem():
         if self.parent():
             newMountPoint += self.parent().pos()
         self.setPos(newMountPoint)
-
         self.setName(properties['name'])
+        if setId:
+            self.setId(properties['id'])
 
 
     def compareProperties(self, properties):
@@ -362,14 +372,22 @@ class GraphicsItem():
 
     def remove(self):
         print("remove %d" % self.id())
-        for item in self.graphicsItemsList:
-            if item.id() in GraphicsItem.idList:
-                GraphicsItem.idList.remove(item.id())
-                item._id = 0
+        if self in self.graphicsItemsList:
+            self.graphicsItemsList.remove(self)
 
         if self.id() in GraphicsItem.idList:
             GraphicsItem.idList.remove(self.id())
         self._id = 0
+
+        graphicsItemsListCopy = []
+        for item in self.graphicsItemsList:
+            graphicsItemsListCopy.append(item)
+
+        for item in graphicsItemsListCopy:
+            print("attempt to remove subItem %d" % item.id())
+            if item.id() in GraphicsItem.idList:
+                item.remove()
+
 
 
     def __str__(self):
