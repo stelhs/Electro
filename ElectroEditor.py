@@ -458,6 +458,7 @@ class ElectroEditor(QMainWindow):
                 self.resetSelectionItems()
                 item.scene().itemAddToSelection(item)
                 self.displayItem(item)
+                item.highlight()
 
             self.dialogLineEditShow("Search item. Enter indexName or itemId:",
                                     dialogOnReturn)
@@ -967,6 +968,21 @@ class ElectroEditor(QMainWindow):
         items = []
         for page in self.pages:
             items += page.scene().graphicsItems(type)
+        return items
+
+
+    def graphicsUnpackedItems(self):
+        items = []
+        for page in self.pages:
+            items += page.scene().graphicsUnpackedItems()
+        return items
+
+
+    def graphicsUnpackedItemsById(self, id):
+        items = []
+        for item in self.graphicsUnpackedItems():
+            if item.id() == id:
+                items.append(item)
         return items
 
 

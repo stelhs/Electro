@@ -95,7 +95,6 @@ def createGraphicsObjectByProperties(ogjectProperties, withId=False):
     return item
 
 
-
 class GraphicsItem():
     idList = []
     MARK_SIZE = 8
@@ -140,10 +139,28 @@ class GraphicsItem():
 
 
     def setId(self, id):
-        print("for %d set %d" % (self.id(), id))
+        if id == 0:
+            print("ZERO id incorrect! id = %d" % id)
+
+        for existId in GraphicsItem.idList:
+            if id == existId and self.id() != id:
+                print("\nDULICATE id detected for %d!\n" % id)
+                break
+
         GraphicsItem.idList.remove(self.id())
         self._id = id
         GraphicsItem.idList.append(id)
+
+
+    @staticmethod
+    def checkDuplicateId():
+        for id1 in GraphicsItem.idList:
+            cnt = 0
+            for id2 in GraphicsItem.idList:
+                if id1 == id2:
+                    cnt += 1
+            if cnt > 1:
+                print("\n!!!detected duplicate!!! %d count %d\n" % (id1, cnt))
 
 
     def removeId(self):
@@ -179,6 +196,7 @@ class GraphicsItem():
 
     def setItemsPen(self, pen):
         if not len(self.graphicsItemsList):
+            print("len is null for %d" % self.id())
             return
         for item in self.graphicsItemsList:
             if item.type() == GROUP_TYPE:
@@ -344,7 +362,6 @@ class GraphicsItem():
     def compareProperties(self, properties):
         for name, value in self.properties().items():
             if not name in properties or properties[name] != value:
-                print("%d base not matched" % self.id())
                 return False
         return True
 
@@ -371,23 +388,12 @@ class GraphicsItem():
 
 
     def remove(self):
-        print("remove %d" % self.id())
-        if self in self.graphicsItemsList:
-            self.graphicsItemsList.remove(self)
-
         if self.id() in GraphicsItem.idList:
             GraphicsItem.idList.remove(self.id())
         self._id = 0
-
-        graphicsItemsListCopy = []
         for item in self.graphicsItemsList:
-            graphicsItemsListCopy.append(item)
-
-        for item in graphicsItemsListCopy:
-            print("attempt to remove subItem %d" % item.id())
             if item.id() in GraphicsItem.idList:
                 item.remove()
-
 
 
     def __str__(self):

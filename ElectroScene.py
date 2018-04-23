@@ -1165,7 +1165,8 @@ class ElectroScene(QGraphicsScene):
 
     def removeGraphicsItem(self, item):
         print("removeGraphicsItem %d" % item.id())
-        self.graphicsItemsList.remove(item)
+        if item in self.graphicsItemsList:
+            self.graphicsItemsList.remove(item)
         if item.type() == GROUP_TYPE:
             subComponents = self.editor.subComponentGroups(item)
             for subComponent in subComponents:
@@ -1264,7 +1265,8 @@ class ElectroScene(QGraphicsScene):
                 if point.scene():
                     self.removeItem(point)
 
-        items = self.graphicsUnpackedItems()
+#        items = self.graphicsUnpackedItems()
+        items = self.graphicsItems()
         if not len(items):
             return
 

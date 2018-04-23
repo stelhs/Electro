@@ -70,6 +70,12 @@ class GraphicsItemGroup(GraphicsItem):
         self.indexNameLabel.setPos(self.pos() - QPointF(MAX_GRID_SIZE, 0))
 
 
+    def generateNewId(self):
+        GraphicsItem.generateNewId(self)
+        for item in self.graphicsItemsList:
+            item.generateNewId()
+
+
     def posFromParent(self):
         return self.mountPoint
 
