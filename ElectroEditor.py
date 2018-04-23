@@ -711,7 +711,11 @@ class ElectroEditor(QMainWindow):
             return
 
         if len(subGroups) == 1:
-            self.displayItem(subGroups[0])
+            subGroup = subGroups[0]
+            self.resetSelectionItems()
+            scene = subGroup.scene()
+            scene.itemAddToSelection(subGroup)
+            self.displayItem(subGroup)
             return
 
         subIndexes = []
