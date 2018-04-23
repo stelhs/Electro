@@ -913,6 +913,7 @@ class ElectroScene(QGraphicsScene):
             pos = self.mapToGrid(self.mousePos, MAX_GRID_SIZE)
             item = GraphicsItemLink(pos)
             item.setCenter(pos)
+            self.resetSelectionItems()
             self.addGraphicsItem(item)
             self.itemAddToSelection(item, True)
             self.calculateSelectionCenter()

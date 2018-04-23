@@ -401,7 +401,9 @@ class ElectroEditor(QMainWindow):
 
         # insert linkPoint
         if key == 76:  # l
-            self.scene().setMode('pastLinkPoint')
+            if scene.mode == "pastLinkPoint":
+                return
+            scene.setMode('pastLinkPoint')
             return
 
         # save project
