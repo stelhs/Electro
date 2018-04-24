@@ -165,6 +165,7 @@ class GraphicsItemLink(GraphicsItem):
 
 
     def updateView(self, selfOnly=False):
+        GraphicsItem.updateView(self)
         self.addrText.setText("")
         self.addrText.setRect(QRectF(0, 0, 0, 0))
         if not self.scene():

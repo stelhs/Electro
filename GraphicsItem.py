@@ -1,6 +1,7 @@
 from ElectroScene import *
 from PyQt4.QtGui import *
 from PyQt4.Qt import QPoint
+from Color import *
 from pprint import *
 import json
 from curses.textpad import rectangle
@@ -29,12 +30,27 @@ graphicsObjectsTypeNames = {
     TEXT_TYPE: "text"
 }
 
+graphicsObjectsPenStyleNames = {
+    1: "solid",
+    2: "dashLine",
+    3: "dotLine",
+    4: "dashDotLine",
+    5: "dashDotDotLine",
+}
+
 
 def typeByName(name):
     for type, value in graphicsObjectsTypeNames.items():
         if name == value:
             return type
     return NOT_DEFINED_TYPE
+
+
+def penStyleByName(name):
+    for type, value in graphicsObjectsPenStyleNames.items():
+        if name == value:
+            return type
+    return 1
 
 
 def mapToGrid(arg, gridSize):
@@ -98,12 +114,10 @@ def createGraphicsObjectByProperties(ogjectProperties, withId=False):
 class GraphicsItem():
     idList = []
     MARK_SIZE = 8
-    normalPen = QPen(QColor(0, 0, 200), 2, Qt.SolidLine, Qt.RoundCap)
-    selectedPen = QPen(Qt.magenta, 3, Qt.SolidLine, Qt.RoundCap)
-    highLightPen = QPen(Qt.blue, 4, Qt.SolidLine, Qt.RoundCap)
 
     def __init__(self):
         self.selected = False
+        self.highlighted = False
         self.copyOf = None
         self.deltaCenter = None
         self.graphicsItemsList = []
@@ -111,7 +125,13 @@ class GraphicsItem():
         self._parentItem = None
         self.mouseMoveDelta = None
         self.generateNewId()
+        self._color = Color(0, 0, 200)
         print("new item was created %d" % self.id())
+        self.defaultPen = QPen(self._color, 2, Qt.SolidLine, Qt.RoundCap)
+        self.normalPen = self.defaultPen
+        self.selectedPen = QPen(Qt.magenta, 3, Qt.SolidLine, Qt.RoundCap)
+        self.highLightPen = QPen(Qt.blue, 4, Qt.SolidLine, Qt.RoundCap)
+        self._currentPen = self.normalPen
 
 
     def type(self):
@@ -190,44 +210,85 @@ class GraphicsItem():
         return "%d/%s" % (scene.num(), quadrant)
 
 
-    def resetPen(self):
-        self.setPen(self.normalPen)
-
-
     def setItemsPen(self, pen):
-        if not len(self.graphicsItemsList):
-            print("len is null for %d" % self.id())
-            return
         for item in self.graphicsItemsList:
-            if item.type() == GROUP_TYPE:
-                item.setItemsPen(pen)
-                continue
-            if not pen:
-                item.resetPen()
-            else:
-                item.setPen(pen)
+            item.setPen(pen)
 
 
     def setColor(self, color):
-        self.normalPen.setColor(color)
-        self.setItemsPen(self.normalPen)
+        self._color.setColor(color)
+        self.normalPen.setColor(self._color)
+        self.updateView()
 
 
     def resetColor(self):
-        self.setItemsPen(None)
+        self.setItemsPen(self.defaultPen)
 
 
     def color(self):
-        return self.normalPen.color()
+        return self._color
 
 
     def setThickness(self, size):
         self.normalPen.setWidth(size)
-        self.setItemsPen(self.normalPen)
+        self.selectedPen.setWidth(size + 1)
+        self.highLightPen.setWidth(size + 2)
+        self.updateView()
 
 
     def thickness(self):
         return self.normalPen.width()
+
+
+    def increaseThickness(self):
+        thickness = self.thickness()
+        if thickness < 6:
+            thickness += 1
+        else:
+            thickness = 1
+        self.setThickness(thickness)
+
+
+    def decreaseThickness(self):
+        thickness = self.thickness()
+        if thickness > 1:
+            thickness -= 1
+        else:
+            thickness = 6
+        self.setThickness(thickness)
+
+
+    def setPenStyle(self, penStyle):
+        self.normalPen.setStyle(penStyle)
+        self.selectedPen.setStyle(penStyle)
+        self.highLightPen.setStyle(penStyle)
+        self.updateView()
+
+
+    def penStyle(self):
+        return self.normalPen.style()
+
+
+    def increasePenStyle(self):
+        penStyle = self.penStyle()
+        if penStyle < Qt.DashDotDotLine:
+            penStyle += 1
+        else:
+            penStyle = Qt.SolidLine
+        self.setPenStyle(penStyle)
+
+
+    def decreasePenStyle(self):
+        penStyle = self.penStyle()
+        if penStyle > Qt.SolidLine:
+            penStyle -= 1
+        else:
+            penStyle = Qt.DashDotDotLine
+        self.setPenStyle(penStyle)
+
+
+    def penStyleName(self):
+        return graphicsObjectsPenStyleNames[self.penStyle()]
 
 
     def isSelected(self):
@@ -235,33 +296,34 @@ class GraphicsItem():
 
 
     def select(self):
-        self.setItemsPen(self.selectedPen)
         self.selected = True
+        self.updateView()
 
 
     def resetSelection(self):
-        self.markPointsHide()
-        self.setItemsPen(self.normalPen)
         self.selected = False
+        self.markPointsHide()
+        self.updateView()
 
 
     def highlight(self):
-        self.setItemsPen(self.highLightPen)
-        for item in self.graphicsItemsList:
-            if item.type() == TEXT_TYPE:
-                item.highlight()
-                continue
+        self.highlighted = True
+        self.updateView()
 
 
     def unHighlight(self):
-        if self.isSelected():
+        self.highlighted = False
+        self.updateView()
+
+
+    def updateView(self):
+        if self.highlighted:
+            self.setItemsPen(self.highLightPen)
+            return
+        if self.selected:
             self.setItemsPen(self.selectedPen)
-        else:
-            self.resetColor()
-        for item in self.graphicsItemsList:
-            if item.type() == TEXT_TYPE:
-                item.unHighlight()
-                continue
+            return
+        self.setItemsPen(self.normalPen)
 
 
     def setCenter(self, point):
@@ -342,6 +404,11 @@ class GraphicsItem():
         properties['name'] = self.name()
         properties['mountPoint'] = {'x': self.posFromParent().x(),
                                     'y': self.posFromParent().y()}
+        properties['penStyle'] = self.penStyleName()
+        properties['color'] = {'R': self.color().red(),
+                               'G': self.color().green(),
+                               'B': self.color().blue()}
+        properties['thickness'] = self.thickness()
         return properties;
 
 
@@ -355,6 +422,14 @@ class GraphicsItem():
             newMountPoint += self.parent().pos()
         self.setPos(newMountPoint)
         self.setName(properties['name'])
+        if 'penStyle' in properties:
+            self.setPenStyle(penStyleByName(properties['penStyle']))
+        if 'color' in properties:
+            self.setColor(QColor(properties['color']['R'],
+                                 properties['color']['G'],
+                                 properties['color']['B']))
+        if 'thickness' in properties:
+            self.setThickness(properties['thickness'])
         if setId:
             self.setId(properties['id'])
 
@@ -388,6 +463,7 @@ class GraphicsItem():
 
 
     def remove(self):
+        self.color().remove()
         if self.id() in GraphicsItem.idList:
             GraphicsItem.idList.remove(self.id())
         self._id = 0

@@ -4,11 +4,9 @@ from GraphicsItem import *
 
 
 class GraphicsItemLine(GraphicsItem, QGraphicsLineItem):
-
+    tracePen = QPen(Color(0, 0, 0), 2, Qt.SolidLine, Qt.RoundCap)
 
     def __init__(self, type='line'):
-        self.linePen = GraphicsItem.normalPen
-        self.tracePen = QPen(Qt.black, 2, Qt.SolidLine, Qt.RoundCap)
         QGraphicsLineItem.__init__(self)
         GraphicsItem.__init__(self)
         self._typeLine = type
@@ -27,17 +25,15 @@ class GraphicsItemLine(GraphicsItem, QGraphicsLineItem):
         return LINE_TYPE
 
 
-    def resetPen(self):
-        if self._typeLine == 'trace':
-            pen = self.tracePen
-        else:
-            pen = self.linePen
-        self.setPen(pen)
-
-
     def setTypeLine(self, type):
         self._typeLine = type
-        self.resetPen()
+        self.updateView()
+
+
+    def updateView(self):
+        if self._typeLine == 'trace':
+            self.normalPen = self.tracePen
+        GraphicsItem.updateView(self)
 
 
     def typeLine(self):
@@ -51,6 +47,18 @@ class GraphicsItemLine(GraphicsItem, QGraphicsLineItem):
     def paint(self, painter, style, widget):
         # TODO: implement arrows
         QGraphicsLineItem.paint(self, painter, style, widget)
+
+
+    def setPenStyle(self, penStyle):
+        if self._typeLine == 'trace':
+            return
+        return GraphicsItem.setPenStyle(self, penStyle)
+
+
+    def setThickness(self, thickness):
+        if self._typeLine == 'trace':
+            return
+        return GraphicsItem.setThickness(self, thickness)
 
 
     def markPointsShow(self):

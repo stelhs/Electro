@@ -1,5 +1,6 @@
 from ElectroScene import *
 from ElectroSceneView import *
+from Color import *
 from LineEditValidators import *
 from PyQt4.Qt import QWidget, QMainWindow, QLabel, QPoint, QTimer
 import os, glob, sys, pprint, re
@@ -57,10 +58,6 @@ class ElectroEditor(QMainWindow):
             page = self.tabWidget.widget(index)
             page.updateLinkPoints()
             self.setEditorTool(page.scene().currentTool())
-#            for page in self.pages:
-#                scene = page.scene()
-#                scene.keyShiftRelease()
-#                scene.keyCTRLRelease()
 
         # create left panel
         leftPanel = QWidget()
@@ -118,6 +115,7 @@ class ElectroEditor(QMainWindow):
         self.mainLayout.addWidget(editorSpace)
         self.mainLayout.addWidget(self.lineEditDialog)
 
+        self.colorDialog = QColorDialog()
 
         self.addPage("Undefined")
         self.setFocusPolicy(Qt.NoFocus)
@@ -125,6 +123,7 @@ class ElectroEditor(QMainWindow):
 
         # make components list
         self.loadComponents()
+
 
 
     def eventFilter(self, object, event):
@@ -272,6 +271,17 @@ class ElectroEditor(QMainWindow):
 
     def sceneView(self):
         return self.tabWidget.currentWidget().sceneView()
+
+
+    def dialogColorSelect(self, currentColor):
+        whiteColorRgb = QColor(255, 255, 255).rgb()
+        for index in range(self.colorDialog.customCount()):
+            self.colorDialog.setCustomColor(index, whiteColorRgb)
+        index = 0
+        for color in Color.usedColors():
+            self.colorDialog.setCustomColor(index, color.rgb())
+            index += 1
+        return self.colorDialog.getColor(currentColor)
 
 
     def dialogLineEditShow(self, message, onSuccess,
@@ -1088,6 +1098,12 @@ class ElectroEditor(QMainWindow):
                     continue
                 scene.itemAddToSelection(item)
 
+    def allGraphicsItems(self, type=None):
+        items = []
+        for page in self.pages:
+            items += page.scene().unpackAllItems(self.graphicsItems(), type)
+        return items
+
 
     def saveProject(self, fileName):
         print("saveProject to %s" % fileName)
@@ -1199,6 +1215,7 @@ class ElectroEditor(QMainWindow):
             self.connectionsList.append(conn)
         Connection.lastId = connLastId + 1
         self.projectFileName = fileName
+
         self.update()
 
 
@@ -1240,7 +1257,8 @@ class PageWidget(QWidget):
         QWidget.__init__(self)
         global page_last_id
         self._name = name
-        self._sceneView = ElectroSceneView(editor, ElectroScene(editor))
+        scene = ElectroScene(editor)
+        self._sceneView = ElectroSceneView(editor, scene)
         layout = QVBoxLayout(self)
         layout.addWidget(self._sceneView)
         self.editor = editor
@@ -1280,12 +1298,10 @@ class PageWidget(QWidget):
 
 
     def updateLinkPoints(self):
-        print("updateLinkPoints num:%d" % self.num())
         scene = self.scene()
         linkPoints = scene.graphicsItems(LINK_TYPE)
         if linkPoints:
             for linkPoint in linkPoints:
-                print("update linkPoint %d" % linkPoint.id())
                 linkPoint.updateView(True)
 
 

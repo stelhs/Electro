@@ -426,6 +426,22 @@ class ElectroScene(QGraphicsScene):
                     item.setFocus()
                     return
 
+                # change color by Double click
+                if (item.type() != GROUP_TYPE and
+                    item.type() != LINK_TYPE):
+                    if item.type() == LINE_TYPE and item.typeLine() == 'trace':
+                        return
+                    newColor = self.editor.dialogColorSelect(item.color())
+                    if not newColor.isValid():
+                        return
+                    selectedItems = self.selectedGraphicsItems()
+                    self.history.changeItemsStart(selectedItems)
+                    for selectedItem in selectedItems:
+                        selectedItem.setColor(newColor)
+                    self.history.changeItemsFinish()
+                    self.resetSelectionItems()
+                    return
+
 
     def stopLineDrawing(self):
         if not self.drawingLine:
@@ -710,7 +726,7 @@ class ElectroScene(QGraphicsScene):
             return
 
         if not self.keyCTRL and not self.keyShift:
-            if key == 87:  # W
+            if key == 72:  # H
                 print(self.history)
                 print(self)
                 return
@@ -736,6 +752,49 @@ class ElectroScene(QGraphicsScene):
                 self.setMode("moveSelectedItems")
                 return
 
+        # increase penStyle
+        if not self.keyShift and key == 81:  # Q
+            items = self.selectedGraphicsItems()
+            if not len(items):
+                return
+            self.history.changeItemsStart(items)
+            for item in items:
+                 item.increasePenStyle()
+            self.history.changeItemsFinish()
+            return
+
+        # decrease penStyle
+        if self.keyShift and key == 81:  # Shift + Q
+            items = self.selectedGraphicsItems()
+            if not len(items):
+                return
+            self.history.changeItemsStart(items)
+            for item in items:
+                 item.decreasePenStyle()
+            self.history.changeItemsFinish()
+            return
+
+        # increase thickness
+        if not self.keyShift and key == 87:  # W
+            items = self.selectedGraphicsItems()
+            if not len(items):
+                return
+            self.history.changeItemsStart(items)
+            for item in items:
+                 item.increaseThickness()
+            self.history.changeItemsFinish()
+            return
+
+        # decrease thickness
+        if self.keyShift and key == 87:  # Shift + W
+            items = self.selectedGraphicsItems()
+            if not len(items):
+                return
+            self.history.changeItemsStart(items)
+            for item in items:
+                 item.decreaseThickness()
+            self.history.changeItemsFinish()
+            return
 
         if key == 16777219:  # Backspace
             if self.mode == 'useTool' and (

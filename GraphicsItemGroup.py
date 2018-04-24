@@ -63,6 +63,7 @@ class GraphicsItemGroup(GraphicsItem):
 
 
     def updateView(self):
+        GraphicsItem.updateView(self)
         text = "%s" % self.indexName()
         if self._parentComponentGroup:
             text += "(%s)" % self._parentComponentGroup.addr()
@@ -74,6 +75,18 @@ class GraphicsItemGroup(GraphicsItem):
         GraphicsItem.generateNewId(self)
         for item in self.graphicsItemsList:
             item.generateNewId()
+
+
+    def setPen(self, pen):
+        GraphicsItem.setItemsPen(self, pen)
+
+
+    def setThickness(self, thickness):
+        return
+
+
+    def setPenStyle(self, penStyle):
+        return
 
 
     def posFromParent(self):
