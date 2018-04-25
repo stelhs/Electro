@@ -180,6 +180,8 @@ class GraphicsItemLine(GraphicsItem, QGraphicsLineItem):
     def properties(self):
         properties = GraphicsItem.properties(self)
         properties['typeLine'] = self.typeLine()
+        if self.typeLine() == 'trace':
+            del properties['color']
         properties['p1'] = {"x" : self.line().p1().x(), "y": self.line().p1().y()}
         properties['p2'] = {"x" : self.line().p2().x(), "y": self.line().p2().y()}
         return properties
@@ -191,6 +193,8 @@ class GraphicsItemLine(GraphicsItem, QGraphicsLineItem):
             return
 
         self.setTypeLine(properties['typeLine'])
+        if self.typeLine() == 'trace' and 'color' in properties:
+            del properties['color']
         GraphicsItem.setProperties(self, properties, setId)
         line = QLineF(QPointF(properties['p1']['x'], properties['p1']['y']),
                       QPointF(properties['p2']['x'], properties['p2']['y']))

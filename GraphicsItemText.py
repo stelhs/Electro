@@ -273,6 +273,13 @@ class GraphicsItemText(GraphicsItem, QGraphicsTextItem):
         self.setPos(pos)
 
 
+    def removeFromQScene(self):
+        GraphicsItem.removeFromQScene(self)
+        scene = self.highLightRect.scene()
+        if scene:
+            scene.removeItem(self.highLightRect)
+
+
     def __str__(self):
         str = GraphicsItem.__str__(self)
         str += ", width:%d, z=%d" % (self.width(), self.zValue())

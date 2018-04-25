@@ -440,6 +440,7 @@ class ElectroScene(QGraphicsScene):
                         newColor = None
 
                     selectedItems = self.selectedGraphicsItems()
+                    selectedItems.append(item)
                     neededItems = []
                     for selectedItem in selectedItems:
                         if (selectedItem.type() == RECT_TYPE or
@@ -460,6 +461,7 @@ class ElectroScene(QGraphicsScene):
                     if not newColor.isValid():
                         return
                     selectedItems = self.selectedGraphicsItems()
+                    selectedItems.append(item)
                     self.history.changeItemsStart(selectedItems)
                     for selectedItem in selectedItems:
                         selectedItem.setColor(newColor)
@@ -473,6 +475,7 @@ class ElectroScene(QGraphicsScene):
                     if not newColor.isValid():
                         return
                     selectedItems = self.selectedGraphicsItems()
+                    selectedItems.append(item)
                     self.history.changeItemsStart(selectedItems)
                     for selectedItem in selectedItems:
                         selectedItem.setColor(newColor)
