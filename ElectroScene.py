@@ -421,12 +421,12 @@ class ElectroScene(QGraphicsScene):
                     self.editor.displayRemoteLinkPoint(item)
                     return
 
-                if item.type() == TEXT_TYPE:
+                if item.type() == TEXT_TYPE and not self.keyShift:
                     item.editEnable()
                     item.setFocus()
                     return
 
-                # change fill color by Double click
+                # change fill color by Shift + Double click
                 if ((item.type() == RECT_TYPE or
                     item.type() == ELLIPSE_TYPE) and
                      self.keyCTRL):
@@ -451,7 +451,6 @@ class ElectroScene(QGraphicsScene):
                     self.history.changeItemsFinish()
                     return
 
-
                 # change color by Double click
                 if (item.type() != GROUP_TYPE and
                     item.type() != LINK_TYPE):
@@ -467,6 +466,20 @@ class ElectroScene(QGraphicsScene):
                     self.history.changeItemsFinish()
                     self.resetSelectionItems()
                     return
+
+                # change color by Shift + Double click for Text
+                if (item.type() == TEXT_TYPE and self.keyShift):
+                    newColor = self.editor.dialogColorSelect(item.color())
+                    if not newColor.isValid():
+                        return
+                    selectedItems = self.selectedGraphicsItems()
+                    self.history.changeItemsStart(selectedItems)
+                    for selectedItem in selectedItems:
+                        selectedItem.setColor(newColor)
+                    self.history.changeItemsFinish()
+                    self.resetSelectionItems()
+                    return
+
 
 
     def stopLineDrawing(self):
