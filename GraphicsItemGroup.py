@@ -226,6 +226,18 @@ class GraphicsItemGroup(GraphicsItem):
         return rect
 
 
+    def setZIndex(self, index):
+        return
+
+
+    def zIndex(self):
+        return None
+
+
+    def setZValue(self, zIndex):
+        return None
+
+
     def properties(self):
         properties = {}
         properties['id'] = self.id()

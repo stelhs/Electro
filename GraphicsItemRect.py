@@ -9,7 +9,7 @@ class GraphicsItemRect(GraphicsItem, QGraphicsRectItem):
         if rect:
             self.setPos(rect.topLeft())
             self.setRect(QRectF(0, 0, rect.width(), rect.height()))
-        self.setZValue(1)
+        self._fillColor = None
         self.setPen(self.normalPen)
         self.graphicsItemsList.append(self)
         self.markPoints = []
@@ -151,10 +151,37 @@ class GraphicsItemRect(GraphicsItem, QGraphicsRectItem):
         return False
 
 
+    def setFillColor(self, color):
+        if not color:
+            if self._fillColor:
+                self._fillColor.remove()
+            self._fillColor = None
+            self.setBrush(QBrush(Qt.NoBrush))
+            return
+
+        if not self._fillColor:
+            self._fillColor = Color(color)
+        else:
+            self._fillColor.setColor(color)
+        self.setBrush(self._fillColor)
+
+
+    def fillColor(self):
+        return self._fillColor
+
+
     def properties(self):
         properties = GraphicsItem.properties(self)
         properties['rectSize'] = {"w": self.rect().width(),
                                   "h": self.rect().height()}
+        color = self.fillColor()
+        if color:
+            properties['fillColor'] = {"R": color.red(),
+                                       "G": color.green(),
+                                       "B": color.blue(),
+                                       "A": color.alpha()}
+        else:
+            properties['fillColor'] = "None"
         return properties
 
 
@@ -167,6 +194,14 @@ class GraphicsItemRect(GraphicsItem, QGraphicsRectItem):
         rect = QRectF(0, 0,
                       properties['rectSize']['w'],
                       properties['rectSize']['h'])
+        if 'fillColor' in properties:
+            if properties['fillColor'] == "None":
+                self.setFillColor(None)
+            else:
+                self.setFillColor(QColor(properties['fillColor']['R'],
+                                         properties['fillColor']['G'],
+                                         properties['fillColor']['B'],
+                                         properties['fillColor']['A']))
         self.setRect(rect)
 
 

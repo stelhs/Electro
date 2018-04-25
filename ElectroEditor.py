@@ -273,7 +273,9 @@ class ElectroEditor(QMainWindow):
         return self.tabWidget.currentWidget().sceneView()
 
 
-    def dialogColorSelect(self, currentColor):
+    def dialogColorSelect(self, currentColor, alphaChannel=False):
+        if not currentColor:
+            currentColor = QColor(255, 255, 255)
         whiteColorRgb = QColor(255, 255, 255).rgb()
         for index in range(self.colorDialog.customCount()):
             self.colorDialog.setCustomColor(index, whiteColorRgb)
@@ -281,6 +283,11 @@ class ElectroEditor(QMainWindow):
         for color in Color.usedColors():
             self.colorDialog.setCustomColor(index, color.rgb())
             index += 1
+        if alphaChannel:
+            return self.colorDialog.getColor(currentColor,
+                                             None,
+                                             "",
+                                             QColorDialog.ShowAlphaChannel)
         return self.colorDialog.getColor(currentColor)
 
 
@@ -770,8 +777,10 @@ class ElectroEditor(QMainWindow):
         if not item:
             self.currentGraphicsItemLabel.setText("")
             return
-        self.currentGraphicsItemLabel.setText("id: %d, type: %s" % (
-                                              item.id(), item.typeName()))
+        text = "id: %d, type: %s" % (item.id(), item.typeName())
+        if item.zIndex():
+            text += ", zIndex: %d" % int(item.zIndex())
+        self.currentGraphicsItemLabel.setText(text)
 
 
     def setStatusScale(self, scale):

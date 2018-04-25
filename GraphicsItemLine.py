@@ -14,7 +14,7 @@ class GraphicsItemLine(GraphicsItem, QGraphicsLineItem):
         self.markP2 = None
         self.selectedPoint = None
         self.graphicsItemsList.append(self)
-        self.setZValue(2)
+        self._zIndex = 2
         self.resetSelection()
         self.arrowsType = None
 

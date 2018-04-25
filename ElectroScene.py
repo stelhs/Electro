@@ -426,6 +426,32 @@ class ElectroScene(QGraphicsScene):
                     item.setFocus()
                     return
 
+                # change fill color by Double click
+                if ((item.type() == RECT_TYPE or
+                    item.type() == ELLIPSE_TYPE) and
+                     self.keyCTRL):
+                    newColor = self.editor.dialogColorSelect(item.fillColor(), True)
+                    if not newColor.isValid():
+                        return
+
+                    if (newColor.red() == 255 and
+                        newColor.green() == 255 and
+                        newColor.blue() == 255):
+                        newColor = None
+
+                    selectedItems = self.selectedGraphicsItems()
+                    neededItems = []
+                    for selectedItem in selectedItems:
+                        if (selectedItem.type() == RECT_TYPE or
+                            selectedItem.type() == ELLIPSE_TYPE):
+                            neededItems.append(selectedItem)
+                    self.history.changeItemsStart(neededItems)
+                    for neededItem in neededItems:
+                        neededItem.setFillColor(newColor)
+                    self.history.changeItemsFinish()
+                    return
+
+
                 # change color by Double click
                 if (item.type() != GROUP_TYPE and
                     item.type() != LINK_TYPE):
@@ -514,7 +540,7 @@ class ElectroScene(QGraphicsScene):
         return
 
 
-    def mouseMoveEventDisplayPoints(self, ev):
+    def mouseMoveEventDisplayPoints(self, pos):
         items = self.graphicsItems()
         if not len(items):
             return
@@ -531,7 +557,7 @@ class ElectroScene(QGraphicsScene):
             if not item.isSelected():
                 item.markPointsHide()
 
-        item = self.graphicItemByCoordinate(ev.scenePos())
+        item = self.graphicItemByCoordinate(pos)
         if not item:
             return
         item.markPointsShow()
@@ -580,7 +606,7 @@ class ElectroScene(QGraphicsScene):
         self.editor.setStatusCursorCoordinates(point)
 
         if self.mode == 'select' or self.mode == 'textEdit':
-            self.mouseMoveEventDisplayPoints(ev)
+            self.mouseMoveEventDisplayPoints(self.mousePos)
 
             if self.mouseMoveEventMoveItem(ev):
                 return
@@ -750,6 +776,26 @@ class ElectroScene(QGraphicsScene):
                     item.moveByCenter(self.mapToGrid(self.mousePos))
 
                 self.setMode("moveSelectedItems")
+                return
+
+            # increase zIndex
+            if key == 43:  # +
+                items = self.selectedGraphicsItems()
+                self.history.changeItemsStart(items)
+                for item in items:
+                    item.increaseZIndex()
+                self.history.changeItemsFinish()
+                self.mouseMoveEventDisplayPoints(self.mousePos)
+                return
+
+            # decrease zIndex
+            if key == 45:  # +
+                items = self.selectedGraphicsItems()
+                self.history.changeItemsStart(items)
+                for item in items:
+                    item.decreaseZIndex()
+                self.history.changeItemsFinish()
+                self.mouseMoveEventDisplayPoints(self.mousePos)
                 return
 
         # increase penStyle

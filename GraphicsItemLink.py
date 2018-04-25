@@ -210,6 +210,18 @@ class GraphicsItemLink(GraphicsItem):
         self.addrText.setAlignment(Qt.AlignCenter)
 
 
+    def setZIndex(self, index):
+        return
+
+
+    def zIndex(self):
+        return None
+
+
+    def setZValue(self, zIndex):
+        return None
+
+
     def connection(self):
         return self._connection
 

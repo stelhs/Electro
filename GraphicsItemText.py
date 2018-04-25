@@ -15,7 +15,7 @@ class GraphicsItemText(GraphicsItem, QGraphicsTextItem):
             self.setPos(pos)
         if rect:
             self.setRect(rect)
-        self.setZValue(3)
+        self._zIndex = 3
         self.setPen(self.normalPen)
         self.graphicsItemsList.append(self)
         self.markPoints = []

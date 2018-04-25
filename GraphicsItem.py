@@ -132,6 +132,7 @@ class GraphicsItem():
         self.selectedPen = QPen(Qt.magenta, 3, Qt.SolidLine, Qt.RoundCap)
         self.highLightPen = QPen(Qt.blue, 4, Qt.SolidLine, Qt.RoundCap)
         self._currentPen = self.normalPen
+        self._zIndex = 1
 
 
     def type(self):
@@ -258,6 +259,33 @@ class GraphicsItem():
         self.setThickness(thickness)
 
 
+    def increaseZIndex(self):
+        for item in self.graphicsItemsList:
+            if item.zIndex() == 10:
+                return
+        for item in self.graphicsItemsList:
+            print("increase zIndex for %d" % item.id())
+            item._zIndex += 1
+            item.updateView()
+
+
+    def decreaseZIndex(self):
+        for item in self.graphicsItemsList:
+            if item.zIndex() == 1:
+                return
+        for item in self.graphicsItemsList:
+            item._zIndex -= 1
+            item.updateView()
+
+
+    def setZIndex(self, index):
+        self._zIndex = index
+
+
+    def zIndex(self):
+        return self._zIndex
+
+
     def setPenStyle(self, penStyle):
         self.normalPen.setStyle(penStyle)
         self.selectedPen.setStyle(penStyle)
@@ -317,6 +345,7 @@ class GraphicsItem():
 
 
     def updateView(self):
+        self.setZValue(self._zIndex)
         if self.highlighted:
             self.setItemsPen(self.highLightPen)
             return
@@ -408,6 +437,7 @@ class GraphicsItem():
         properties['color'] = {'R': self.color().red(),
                                'G': self.color().green(),
                                'B': self.color().blue()}
+        properties['zIndex'] = self.zIndex()
         properties['thickness'] = self.thickness()
         return properties;
 
@@ -430,8 +460,11 @@ class GraphicsItem():
                                  properties['color']['B']))
         if 'thickness' in properties:
             self.setThickness(properties['thickness'])
+        if 'zIndex' in properties:
+            self.setZIndex(properties['zIndex'])
         if setId:
             self.setId(properties['id'])
+        self.updateView()
 
 
     def compareProperties(self, properties):
