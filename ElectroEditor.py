@@ -1,6 +1,7 @@
 from ElectroScene import *
 from ElectroSceneView import *
 from Color import *
+from Settings import *
 from LineEditValidators import *
 from PyQt4.Qt import QWidget, QMainWindow, QLabel, QPoint, QTimer
 import os, glob, sys, pprint, re
@@ -125,6 +126,8 @@ class ElectroEditor(QMainWindow):
 
         # make components list
         self.loadComponents()
+        self.lastSaveTime = 0
+        self.settings = Settings()
 
 
 
@@ -364,11 +367,13 @@ class ElectroEditor(QMainWindow):
         key = event.key()
         print key
 
+        # detect CTRL pressed
         if key == 16777249:  # CTRL
             self.keyCTRL = True
             for page in self.pages:
                 page.scene().keyCTRLPress()
 
+        # detect Shift pressed
         if key == 16777248:  # Shift
             self.keyShift = True
             for page in self.pages:
@@ -385,6 +390,7 @@ class ElectroEditor(QMainWindow):
         if not scene:
             return
 
+        # cancel current operation
         if key == 16777216:  # ESC
             self.dialogLineEditHide()
             self.setTool(None)
@@ -392,28 +398,34 @@ class ElectroEditor(QMainWindow):
             self.resetSelectionItems()
             return
 
+        # route all key pressed into scene while textEdit mode
         if scene.mode == 'textEdit':
             scene.keyPressEvent(event)
             return
 
+        # select tool 'traceLine'
         if key == 49:  # 1
             self.setTool('traceLine')
             return
 
 
+        # select tool 'line'
         if key == 50:  # 2
             self.setTool('line')
             return
 
 
+        # select tool 'rectangle'
         if key == 51:  # 3
             self.setTool('rectangle')
             return
 
+        # select tool 'ellipse'
         if key == 52:  # 4
             self.setTool('ellipse')
             return
 
+        # select tool 'text'
         if key == 53:  # 5
             self.setTool('text')
             return
@@ -427,9 +439,13 @@ class ElectroEditor(QMainWindow):
 
         # save project
         if self.keyCTRL and key == 83:  # CTRL+S
+            file = None
             if not self.projectFileName or self.keyShift:
-                file = str(QFileDialog.getSaveFileName(None, "Save project",
-                                            filter="Electro schematic file (*.es)"))
+                lastDir = self.settings.data()['lastProjectDir']
+                file = str(QFileDialog.getSaveFileName(None,
+                                                       "Save project",
+                                            filter="Electro schematic file (*.es)",
+                                            directory=lastDir))
                 if not file:
                     return
             self.saveProject(file)
@@ -437,8 +453,10 @@ class ElectroEditor(QMainWindow):
 
         # open project
         if self.keyCTRL and key == 79:  # CTRL+O
+            lastDir = self.settings.data()['lastProjectDir']
             file = str(QFileDialog.getOpenFileName(None, "open schematic",
-                                        filter="Electro schematic file (*.es)"))
+                                        filter="Electro schematic file (*.es)",
+                                        directory=lastDir))
             if not file:
                 return
             self.openProject(file)
@@ -515,15 +533,17 @@ class ElectroEditor(QMainWindow):
                                     validator=validator)
             return
 
+        # move current page left
         if self.keyCTRL and key == 16777234:  # CTRL+LEFT
             self.moveCurrentPageLeft()
             return
 
+        # move current page right
         if self.keyCTRL and key == 16777236:  # CTRL+RIGHT
             self.moveCurrentPageRight()
             return
 
-        # add new component
+        # save selected items into component
         if self.keyCTRL and key == 87:  # CTRL+W
             def dialogOnReturn(str):
                 [name, prefix] = str.split()
@@ -554,10 +574,11 @@ class ElectroEditor(QMainWindow):
                                     dialogOnReturn, validator=validator)
             return
 
-        # edit page name
+        # edit current page name or selected group properties
         if self.keyCTRL and key == 69:  # CTRL+E
             selectedItems = self.scene().selectedGraphicsItems()
             if len(selectedItems):
+                # edit current group item
                 groupsSelected = []
                 for item in selectedItems:
                     if item.type() != GROUP_TYPE:
@@ -575,7 +596,7 @@ class ElectroEditor(QMainWindow):
                 self.showEditGroupIndexName(groupsSelected[0])
                 return
 
-            # edit page
+            # edit current page name
             name = self.currectPage().name()
             def dialogOnReturn(name):
                 page = self.currectPage()
@@ -590,7 +611,7 @@ class ElectroEditor(QMainWindow):
         if self.keyCTRL and key == 68:  # CTRL+D
             selectedComponents = self.componentListWidget.selectedItems()
             if len(selectedComponents):
-                # remove component
+                # remove selected component
                 def dialogOnRemoveComponent(answer):
                     if answer != 'yes' and answer != 'y':
                         return
@@ -603,7 +624,7 @@ class ElectroEditor(QMainWindow):
                                         validator=validator)
                 return
 
-            # remove page
+            # remove current page
             def dialogOnRemovePage(answer):
                 page = self.currectPage()
                 self.dialogLineEditHide()
@@ -617,14 +638,8 @@ class ElectroEditor(QMainWindow):
                                     validator=validator)
             return
 
-        if (key == 16777234 or key == 16777236 or
-            key == 16777235 or key == 16777237):
-            scene.keyPressEvent(event)
-            return
-
         scene.keyPressEvent(event)
         return
-#        QWidget.keyPressEvent(self, event)
 
 
     def keyReleaseEvent(self, event):
@@ -1055,7 +1070,7 @@ class ElectroEditor(QMainWindow):
         try:
             ItemsProperties = json.loads(str(jsonText))
         except:
-            print("Bad clipboard data")
+            print("Bad json data")
             return []
 
         listUpdateParentComponents = []
@@ -1125,10 +1140,13 @@ class ElectroEditor(QMainWindow):
         if not self.projectFileName:
             return
 
-        if cuttentTime > (self.lastSaveTime + 10 * 60):
+        backupInterval = self.settings.data()['backupInterval']
+        if cuttentTime > (self.lastSaveTime + backupInterval):
             self.lastSaveTime = cuttentTime
             self.backupProject()
 
+        fileDirName = os.path.dirname(self.projectFileName)
+        self.settings.set('lastProjectDir', fileDirName)
         self.saveProjectToFile(self.projectFileName)
 
 
@@ -1164,6 +1182,9 @@ class ElectroEditor(QMainWindow):
 
     def backupProject(self):
         if not self.projectFileName:
+            return
+
+        if not os.path.isfile(self.projectFileName):
             return
 
         baseFileName = os.path.basename(self.projectFileName)

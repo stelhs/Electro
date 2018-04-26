@@ -768,11 +768,13 @@ class ElectroScene(QGraphicsScene):
             return
 
         if not self.keyCTRL and not self.keyShift:
+            # display scene items info
             if key == 72:  # H
                 print(self.history)
                 print(self)
                 return
 
+            # change grid size
             if key == 83:  # S
                 self.changeGridSize()
                 return
@@ -785,7 +787,8 @@ class ElectroScene(QGraphicsScene):
                     self.changeSelectedLinesType()
                 return
 
-            if key == 88:  # x (cut and move selected items)
+            # cut and move selected items
+            if key == 88:  # x
                 items = self.selectedGraphicsItems()
                 self.history.changeItemsStart(items)
                 for item in items:
@@ -858,6 +861,7 @@ class ElectroScene(QGraphicsScene):
             self.history.changeItemsFinish()
             return
 
+        # undo last inserted line point while drawing line mode
         if key == 16777219:  # Backspace
             if self.mode == 'useTool' and (
                 self.currentTool() == 'traceLine' or
@@ -870,10 +874,8 @@ class ElectroScene(QGraphicsScene):
                 self.drawingLine.setP2(self.mousePos)
                 return
 
+        # rotate selected items
         if key == 32:  # Space
-#            if self.mode == 'pasteFromClipboard':
-#            self.calculateSelectionCenter()
-
             if self.mode != 'pasteFromClipboard':
                 self.history.changeItemsStart(self.selectedGraphicsItems())
 
@@ -883,22 +885,27 @@ class ElectroScene(QGraphicsScene):
                 self.history.changeItemsFinish()
             return
 
+        # select all items
         if self.keyCTRL and key == 65:  # CTLR + A
             for item in self.graphicsItems():
                 self.itemAddToSelection(item)
 
+        # undo
         if self.keyCTRL and key == 90:  # CTLR + Z
             self.history.undo()
             return
 
+        # redo
         if self.keyCTRL and key == 89:  # CTLR + Y
             self.history.redo()
             return
 
+        # copy selected items
         if self.keyCTRL and key == 67:  # CTLR + C
             self.copySelectedToClipboard()
             return
 
+        # copy and remove selected items
         if self.keyCTRL and key == 88:  # CTLR + X
             self.copySelectedToClipboard()
             items = self.selectedGraphicsItems()
@@ -906,20 +913,24 @@ class ElectroScene(QGraphicsScene):
             self.removeGraphicsItems(items)
             return
 
+        # paste items from clipboard
         if self.keyCTRL and key == 86:  # CTLR + V
             self.pastFromClipboard()
             return
 
-        if not self.keyShift and key == 71:  # G (selected to group)
+        # pack selected item into group
+        if not self.keyShift and key == 71:  # G
             print("G")
             self.packSelectedIntoGroup()
             return
 
-        if self.keyShift and key == 71:  # Shift+G (ungroup selected groups)
+        # unpack selected item from group
+        if self.keyShift and key == 71:  # Shift+G
             print("Shift+G")
             self.unpackSelectedGroups()
             return
 
+        # move up selected items
         if key == 16777235:  # UP
             if not len(self.graphicsItems()):
                 return
@@ -930,6 +941,7 @@ class ElectroScene(QGraphicsScene):
             self.editor.updateAllComponentsView()
             return
 
+        # move down selected items
         if key == 16777237:  # DOWN
             if not len(self.graphicsItems()):
                 return
@@ -940,6 +952,7 @@ class ElectroScene(QGraphicsScene):
             self.editor.updateAllComponentsView()
             return
 
+        # move left selected items
         if key == 16777234:  # LEFT
             if not len(self.graphicsItems()):
                 return
@@ -950,6 +963,7 @@ class ElectroScene(QGraphicsScene):
             self.editor.updateAllComponentsView()
             return
 
+        # move right selected items
         if key == 16777236:  # RIGHT
             if not len(self.graphicsItems()):
                 return
