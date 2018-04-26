@@ -411,12 +411,14 @@ class ElectroEditor(QMainWindow):
             self.keyCTRL = True
             for page in self.pages:
                 page.scene().keyCTRLPress()
+                page.sceneView().keyCTRLPress()
 
         # detect Shift pressed
         if key == 16777248:  # Shift
             self.keyShift = True
             for page in self.pages:
                 page.scene().keyShiftPress()
+                page.sceneView().keyShiftPress()
 
         # add new page
         if self.keyCTRL and key == 80:  # CTRL+P
@@ -705,11 +707,13 @@ class ElectroEditor(QMainWindow):
             self.keyCTRL = False
             for page in self.pages:
                 page.scene().keyCTRLRelease()
+                page.sceneView().keyCTRLRelease()
 
         if key == 16777248:  # Shift
             self.keyShift = False
             for page in self.pages:
                 page.scene().keyShiftRelease()
+                page.sceneView().keyShiftRelease()
 
         if self.scene():
             self.scene().keyReleaseEvent(event)

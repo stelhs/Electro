@@ -12,12 +12,11 @@ class ElectroSceneView(QGraphicsView):
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
         self.zoomFactor = 1.25
         self.setAlignment(Qt.AlignTop | Qt.AlignLeft)
-        # self.horizontalScrollBar().setValue(scene.sceneRect().left())
-        # self.verticalScrollBar().setValue(scene.sceneRect().top())
         self.setMouseTracking(True)
         self.scalePercent = 100
         self.editor.setStatusScale(self.scalePercent)
-        # self.setFocusPolicy(Qt.NoFocus)
+        self.keyCTRL = False
+        self.keyShift = False
 
 
     def zoomIn(self, zoomPos):
@@ -86,10 +85,46 @@ class ElectroSceneView(QGraphicsView):
 
 
     def wheelEvent(self, event):
+        if self.keyCTRL:
+            deltaY = 0
+            if event.delta() > 0:
+                deltaY += 80
+            else:
+                deltaY -= 80
+            bar = self.verticalScrollBar()
+            bar.setValue(bar.value() + deltaY)
+            return
+
+        if self.keyShift:
+            deltaX = 0
+            if event.delta() > 0:
+                deltaX += 80
+            else:
+                deltaX -= 80
+            bar = self.horizontalScrollBar()
+            bar.setValue(bar.value() + deltaX)
+            return
+
         if event.delta() > 0:
             self.zoomIn(event.pos())
         else:
             self.zoomOut(event.pos())
+
+
+    def keyShiftPress(self):
+        self.keyShift = True
+
+
+    def keyCTRLPress(self):
+        self.keyCTRL = True
+
+
+    def keyShiftRelease(self):
+        self.keyShift = False
+
+
+    def keyCTRLRelease(self):
+        self.keyCTRL = False
 
 
     def keyPressEvent(self, event):
