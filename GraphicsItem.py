@@ -71,7 +71,6 @@ def mapToGrid(arg, gridSize):
         y = rect.bottomRight().y() + gridSize
         bottomRight = mapToGrid(QPointF(x, y), gridSize)
         rect = QRectF(topLeft, bottomRight)
-        print("mapToGrid rect = %s" % rect)
         return rect
 
 

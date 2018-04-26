@@ -546,7 +546,12 @@ class ElectroEditor(QMainWindow):
         # save selected items into component
         if self.keyCTRL and key == 87:  # CTRL+W
             def dialogOnReturn(str):
-                [name, prefix] = str.split()
+                parts = str.split()
+                prefix = ""
+                name = parts[0]
+                if not len(parts) == 1:
+                    prefix = parts[1]
+
                 items = scene.selectedGraphicsItems()
                 if not len(items):
                     self.showStatusBarErrorMessage("no selected items")
@@ -559,6 +564,8 @@ class ElectroEditor(QMainWindow):
                         return
                     group = item
 
+                if not prefix:
+                    prefix = group.prefixName()
                 group.setPrefixName(prefix)
                 if not group.index():
                     self.setUniqueComponentIndex(group)
@@ -1403,10 +1410,13 @@ class Component(QListWidgetItem):
     def save(self):
         group = self.group()
         rect = mapToGrid(group.boundingRect(), MAX_GRID_SIZE)
+        rect = QRectF(0, 0,
+                      rect.width() + MAX_GRID_SIZE * 2,
+                      rect.height() + MAX_GRID_SIZE * 2)
         tempScene = QGraphicsScene()
         tempScene.setSceneRect(rect)
         group.setIndex(0)
-        group.setPos(rect.topLeft())
+        group.setPos(QPointF(MAX_GRID_SIZE, MAX_GRID_SIZE))
         group.setScene(tempScene)
 
         self._image = QImage(rect.size().toSize(), QImage.Format_ARGB32)
@@ -1416,6 +1426,8 @@ class Component(QListWidgetItem):
         painter.end()
 
         self._image = self._image.scaledToWidth(100, Qt.SmoothTransformation)
+        if self._image.height() > 80:
+            self._image = self._image.scaledToHeight(100, Qt.SmoothTransformation)
         self._image.save("%s/%s.png" % (componentsPath(), self._name))
 
         jsonProp = json.dumps(self._groupProperties, indent=2, sort_keys=True)

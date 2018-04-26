@@ -52,10 +52,13 @@ class ComponentNameValidator(DialogLineEditValidator):
         words = string.split()
         if len(words) != 2:
             self.sendError("Please enter component_name and component_prefix through a space")
-            return QValidator.Intermediate, pos
 
+        if len(words) > 1:
+            prefix = words[1]
+        else:
+            prefix = ""
         name = words[0]
-        prefix = words[1]
+
         for component in self.editor.componentList:
             if component.name() == name:
                 self.sendError("component with name '%s' already exists" % name)

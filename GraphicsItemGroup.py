@@ -47,7 +47,9 @@ class GraphicsItemGroup(GraphicsItem):
                                   self._index)
 
         if self._prefixName:
-            return "%s%d" % (self._prefixName, self._index)
+            if self._index:
+                return "%s%d" % (self._prefixName, self._index)
+            return "%s" % self._prefixName
         return ""
 
 
