@@ -1094,9 +1094,10 @@ class ElectroScene(QGraphicsScene):
 
 
     def itemRemoveFromSelection(self, item):
-        item.resetSelection()
+        item.resetSelection(True)
         item.markPointsHide()
         item.unHighlight()
+        return
 
 
     def copySelectedToClipboard(self):
@@ -1573,10 +1574,8 @@ class MouseSelectionDrawing(RectDrawing):
             for selItem in self._selectedItems:
                 if item == selItem:
                     selected = True
-
             if selected:
                 continue
-
             self._scene.itemRemoveFromSelection(item)
 
         # Select all items in rectangle

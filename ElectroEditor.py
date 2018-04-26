@@ -1111,6 +1111,7 @@ class ElectroEditor(QMainWindow):
             return False
         self.resetSelectionItems()
         self.displayItem(remoteLinkPoint)
+        remoteLinkPoint.scene().itemAddToSelection(remoteLinkPoint)
         remoteLinkPoint.highlight()
         return True
 
@@ -1355,7 +1356,6 @@ class ElectroEditor(QMainWindow):
         self.update()
 
 
-
     def resetEditor(self):
         pagesCopy = []
         for page in self.pages:
@@ -1435,7 +1435,8 @@ class PageWidget(QWidget):
         linkPoints = scene.graphicsItems(LINK_TYPE)
         if linkPoints:
             for linkPoint in linkPoints:
-                linkPoint.updateView(True)
+                linkPoint.refreshViewData(True)
+
 
 
 

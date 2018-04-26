@@ -61,7 +61,7 @@ class GraphicsItemLink(GraphicsItem):
         delta = self.arrowPos() - self.pos()
         self.line.setP1(pos)
         self.setArrowPos(pos + delta)
-        self.updateView()
+        self.refreshViewData()
 
 
     def setPen(self, pen):
@@ -104,7 +104,7 @@ class GraphicsItemLink(GraphicsItem):
             if item == self.addrText:
                 continue
             item.rotate(center, angle)
-        self.updateView()
+        self.refreshViewData()
 
 
     def properties(self):
@@ -164,11 +164,10 @@ class GraphicsItemLink(GraphicsItem):
 
     def setConnection(self, conn):
         self._connection = conn
-        self.updateView()
+        self.refreshViewData()
 
 
-    def updateView(self, selfOnly=False):
-        GraphicsItem.updateView(self)
+    def refreshViewData(self, selfOnly=False):
         self.addrText.setText("")
         self.addrText.setRect(QRectF(0, 0, 0, 0))
         if not self.scene():
@@ -183,7 +182,7 @@ class GraphicsItemLink(GraphicsItem):
             text += "(%s)" % remoteLinkPoint.addr()
             self.addrText.setText(text)
             if not selfOnly:
-                remoteLinkPoint.updateView(True)
+                remoteLinkPoint.refreshViewData(True)
 
         self.addrText.setText(text)
 
@@ -250,8 +249,8 @@ class GraphicsItemLink(GraphicsItem):
             return
         remoteLinkPoint = self.remoteLinkPoint()
         conn.remove()
-        self.updateView()
-        remoteLinkPoint.updateView()
+        self.refreshViewData()
+        remoteLinkPoint.refreshViewData()
 
 
     def __str__(self):

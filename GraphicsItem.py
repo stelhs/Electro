@@ -327,8 +327,10 @@ class GraphicsItem():
         self.updateView()
 
 
-    def resetSelection(self):
+    def resetSelection(self, fast=False):
         self.selected = False
+        if fast:
+            return
         self.markPointsHide()
         self.updateView()
 
