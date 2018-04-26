@@ -399,9 +399,11 @@ class ElectroScene(QGraphicsScene):
     def mouseDoubleClickEvent(self, ev):
         if ev.button() == 1:
             if self.mode == 'select':
+                print("double")
                 item = self.graphicItemByCoordinate(ev.scenePos())
                 if not item:
                     return
+                print(item.typeName())
 
                 if item.type() == GROUP_TYPE:
                     if self.keyShift:
@@ -418,6 +420,7 @@ class ElectroScene(QGraphicsScene):
                     return
 
                 if item.type() == LINK_TYPE:
+                    print("LINK_TYPE")
                     self.editor.displayRemoteLinkPoint(item)
                     return
 
@@ -538,8 +541,6 @@ class ElectroScene(QGraphicsScene):
         for item in self.selectedGraphicsItems():
             item.setCenter(self.selectedCenter)
         self.movingItem = True
-        for item in self.selectedGraphicsItems():
-            print("moved item %s" % item)
         self.history.changeItemsStart(self.selectedGraphicsItems())
         return
 

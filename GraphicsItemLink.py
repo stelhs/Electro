@@ -17,6 +17,9 @@ class GraphicsItemLink(GraphicsItem):
         self.ellipse.setBrush(QBrush(self.normalPen.color()))
         self.addrText = GraphicsItemText()
         self.addrText.removeId()
+        self.line.setParent(self)
+        self.ellipse.setParent(self)
+        self.addrText.setParent(self)
         self.addItems([self.line, self.ellipse, self.addrText])
 
         if pos:

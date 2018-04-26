@@ -215,6 +215,10 @@ class ElectroEditor(QMainWindow):
         self.tabWidget.setCurrentIndex(index)
 
 
+    def switchPage(self, pageNum):
+        self.tabWidget.setCurrentIndex(pageNum - 1)
+
+
     def loadComponents(self):
         for fileName in glob.glob("%s/*.ec" % componentsPath()):
             fileName = os.path.basename(fileName)
@@ -508,6 +512,7 @@ class ElectroEditor(QMainWindow):
                     return
                 self.resetEditor()
                 self.addPage("Undefined")
+                self.displayScenePoint(QPointF(0, 0), 100)
 
             validator = YesNoValidator(self)
             self.dialogLineEditShow("Create new Project?:",
@@ -1088,8 +1093,9 @@ class ElectroEditor(QMainWindow):
 
 
     def displayItem(self, item):
+        scene = item.scene()
         self.tabWidget.setCurrentIndex(scene.num() - 1)
-        self.displayScenePoint(item.center(), 200, item.scene())
+        self.displayScenePoint(item.center(), 200, scene)
 
 
     def displayScenePoint(self, point, zoom, scene=None):
@@ -1104,8 +1110,8 @@ class ElectroEditor(QMainWindow):
         if not remoteLinkPoint:
             return False
         self.resetSelectionItems()
-        remoteLinkPoint.scene().itemAddToSelection(remoteLinkPoint)
         self.displayItem(remoteLinkPoint)
+        remoteLinkPoint.highlight()
         return True
 
 
@@ -1194,12 +1200,20 @@ class ElectroEditor(QMainWindow):
         fileDirName = os.path.dirname(self.projectFileName)
         self.settings.set('lastProjectDir', fileDirName)
         self.saveProjectToFile(self.projectFileName)
+        self.showStatusBarMessage("project saved in %s" % self.projectFileName)
 
 
     def saveProjectToFile(self, fileName):
         print("saveProjectToFile %s" % fileName)
+        if not self.currectPage():
+            return False
+        viewCenter = self.sceneView().center()
         header = {"app": "Electro Schematic editor",
-                  "version": self.EDITOR_VERSION}
+                  "version": self.EDITOR_VERSION,
+                  "viewPage": self.currectPage().num(),
+                  "viewCenter": {'x': viewCenter.x(),
+                                 'y': viewCenter.y()},
+                  "viewZoom": self.sceneView().zoom()}
 
         pagesData = []
         for page in self.pages:
@@ -1223,7 +1237,7 @@ class ElectroEditor(QMainWindow):
         file = open(fileName, "w")
         file.write(jsonText)
         file.close()
-        self.showStatusBarMessage("project saved in %s" % fileName)
+        return True
 
 
     def backupProject(self):
@@ -1319,9 +1333,6 @@ class ElectroEditor(QMainWindow):
             parentGroup = self.itemById(parentId)
             group.setParentComponentGroup(parentGroup)
 
-        self.actualizePagesTabs()
-
-
         # actualize connections
         connLastId = 0
         for connData in connectionsData:
@@ -1335,6 +1346,12 @@ class ElectroEditor(QMainWindow):
         Connection.lastId = connLastId + 1
         self.projectFileName = fileName
 
+        self.actualizePagesTabs()
+        if 'viewPage' in header:
+            self.switchPage(header['viewPage'])
+            self.displayScenePoint(QPointF(header['viewCenter']['x'],
+                                           header['viewCenter']['y']),
+                                           header['viewZoom'])
         self.update()
 
 

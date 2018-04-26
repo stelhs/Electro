@@ -13,7 +13,4 @@ app = QApplication(sys.argv)
 electro = ElectroEditor(app)
 electro.show()
 
-# view.setDragMode(QGraphicsView.RubberBandDrag)
-
-#        line.setFlag(QGraphicsItem.ItemIsMovable)
 

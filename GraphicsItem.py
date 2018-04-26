@@ -334,11 +334,17 @@ class GraphicsItem():
 
 
     def highlight(self):
+        for item in self.graphicsItemsList:
+            item.highlighted = True
+            item.updateView()
         self.highlighted = True
         self.updateView()
 
 
     def unHighlight(self):
+        for item in self.graphicsItemsList:
+            item.highlighted = False
+            item.updateView()
         self.highlighted = False
         self.updateView()
 

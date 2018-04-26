@@ -21,6 +21,7 @@ class GraphicsItemText(GraphicsItem, QGraphicsTextItem):
         self.markPoints = []
         self.selectedPoint = None
         self.highLightRect = QGraphicsRectItem()
+        self.highLightRect.setZValue(0)
         self.highLightRect.setPen(QPen(self.highLightPen.color(), 1,
                                   Qt.SolidLine, Qt.RoundCap))
 
@@ -73,13 +74,13 @@ class GraphicsItemText(GraphicsItem, QGraphicsTextItem):
         self.setDefaultTextColor(pen.color())
 
 
-    def highlight(self):
-        self.highLightRect.setPos(self.pos())
-        self.highLightRect.setRect(self._boundingRect())
-        self.scene().addItem(self.highLightRect)
-
-
-    def unHighlight(self):
+    def updateView(self):
+        GraphicsItem.updateView(self)
+        if self.highlighted:
+            self.highLightRect.setPos(self.pos())
+            self.highLightRect.setRect(self._boundingRect())
+            self.scene().addItem(self.highLightRect)
+            return
         if self.highLightRect.scene():
             self.scene().removeItem(self.highLightRect)
 
