@@ -239,8 +239,6 @@ class GraphicsItemText(GraphicsItem, QGraphicsTextItem):
         QGraphicsTextItem.setRotation(self, self._angle % 180)
 
 
-
-
     def rotate(self, center, angle):
         rect = QRectF(self.pos(), QSizeF(self.width(), self.height()))
 

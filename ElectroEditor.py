@@ -4,7 +4,9 @@ from Color import *
 from LineEditValidators import *
 from PyQt4.Qt import QWidget, QMainWindow, QLabel, QPoint, QTimer
 import os, glob, sys, pprint, re
-
+from shutil import copyfile
+from datetime import datetime
+import time
 
 
 class ElectroEditor(QMainWindow):
@@ -430,12 +432,7 @@ class ElectroEditor(QMainWindow):
                                             filter="Electro schematic file (*.es)"))
                 if not file:
                     return
-
-                if file[-3:] != '.es':
-                    file += '.es'
-                self.projectFileName = file
-
-            self.saveProject(self.projectFileName)
+            self.saveProject(file)
             return
 
         # open project
@@ -1114,8 +1111,29 @@ class ElectroEditor(QMainWindow):
         return items
 
 
-    def saveProject(self, fileName):
-        print("saveProject to %s" % fileName)
+    def saveProject(self, newfileName):
+        cuttentTime = int(time.time())
+        if newfileName:
+            if newfileName[-3:] != '.es':
+                newfileName += '.es'
+
+            fileDirName = os.path.dirname(newfileName)
+            if not os.path.isdir(fileDirName):
+                os.mkdir(fileDirName)
+            self.projectFileName = newfileName
+
+        if not self.projectFileName:
+            return
+
+        if cuttentTime > (self.lastSaveTime + 10 * 60):
+            self.lastSaveTime = cuttentTime
+            self.backupProject()
+
+        self.saveProjectToFile(self.projectFileName)
+
+
+    def saveProjectToFile(self, fileName):
+        print("saveProjectToFile %s" % fileName)
         header = {"app": "Electro Schematic editor",
                   "version": self.EDITOR_VERSION}
 
@@ -1129,7 +1147,6 @@ class ElectroEditor(QMainWindow):
                               "name": page.name(),
                               "items": itemsData})
 
-
         connections = []
         for connection in self.connectionsList:
             connections.append(connection.properties())
@@ -1137,12 +1154,32 @@ class ElectroEditor(QMainWindow):
         data = {"header": header,
                 "pages": pagesData,
                 "connections": connections}
-        jsonText = json.dumps(data)
+        jsonText = json.dumps(data, indent=2, sort_keys=True)
 
         file = open(fileName, "w")
         file.write(jsonText)
         file.close()
         self.showStatusBarMessage("project saved in %s" % fileName)
+
+
+    def backupProject(self):
+        if not self.projectFileName:
+            return
+
+        baseFileName = os.path.basename(self.projectFileName)
+        fileDirName = os.path.dirname(self.projectFileName)
+        if fileDirName:
+            fileDirName += '/'
+        projectName = os.path.splitext(baseFileName)[0]
+        date = datetime.now().strftime("%Y-%m-%d_%H-%M")
+        newFileDir = "%s%s_backups" % (fileDirName, projectName)
+        if not os.path.isdir(newFileDir):
+            os.mkdir(newFileDir)
+        newFileName = "%s/%s_%s.es" % (newFileDir,
+                                       projectName,
+                                       date)
+        print("makeBackup to %s" % newFileName)
+        copyfile(self.projectFileName, newFileName)
 
 
     def openProject(self, fileName):
@@ -1359,7 +1396,7 @@ class Component(QListWidgetItem):
         self._image = self._image.scaledToWidth(100, Qt.SmoothTransformation)
         self._image.save("%s/%s.png" % (componentsPath(), self._name))
 
-        jsonProp = json.dumps(self._groupProperties)
+        jsonProp = json.dumps(self._groupProperties, indent=2, sort_keys=True)
         f = open("%s/%s.ec" % (componentsPath(), self._name), "w")
         f.write(jsonProp)
         f.close()

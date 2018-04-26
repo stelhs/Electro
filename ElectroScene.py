@@ -1088,12 +1088,10 @@ class ElectroScene(QGraphicsScene):
         items = self.selectedGraphicsItems()
         if not len(items):
             return
-
         ItemsProperties = []
         for item in items:
             ItemsProperties.append(item.properties())
-
-        jsonText = json.dumps(ItemsProperties)
+        jsonText = json.dumps(ItemsProperties, indent=2, sort_keys=True)
         self.editor.toClipboard(jsonText)
 
 
