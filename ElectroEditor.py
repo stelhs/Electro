@@ -10,11 +10,16 @@ from datetime import datetime
 import time
 
 
+def editorPath():
+    return os.path.dirname(os.path.realpath(sys.argv[0]))
+
+
 class ElectroEditor(QMainWindow):
     EDITOR_VERSION = 1
 
     def __init__(self, app):
         QMainWindow.__init__(self)
+
         self.app = app
         self.keyCTRL = False
         self.keyShift = False
@@ -54,6 +59,9 @@ class ElectroEditor(QMainWindow):
         self.setStatusBar(self.statusBar)
 
         # create editor tabs and components list
+        rightPanel = QWidget()
+        rightPanellayout = QVBoxLayout(rightPanel)
+
         self.tabWidget = QTabWidget()
         def tabChanged(index):
             if index < 0:
@@ -61,6 +69,7 @@ class ElectroEditor(QMainWindow):
             page = self.tabWidget.widget(index)
             page.updateLinkPoints()
             self.setEditorTool(page.scene().currentTool())
+        rightPanellayout.addWidget(self.tabWidget)
 
         # create left panel
         leftPanel = QWidget()
@@ -90,11 +99,27 @@ class ElectroEditor(QMainWindow):
         self.componentInfoLabel.setFixedHeight(60)
         leftPanellayout.addWidget(self.componentInfoLabel)
 
+        # make help dialog
+        self.helpDialog = QWidget()
+        layout = QHBoxLayout(self.helpDialog)
+        helpText1 = QLabel()
+        helpText2 = QLabel()
+        layout.addWidget(helpText1)
+        layout.addWidget(helpText2)
+        self.helpDialog.hide()
+        file = open("%s/hotKeys.txt" % editorPath(), "r")
+        content = file.read()
+        file.close()
+        parts = content.split('------')
+        helpText1.setText(parts[0])
+        helpText2.setText(parts[1])
+        rightPanellayout.addWidget(self.helpDialog)
+
         # create editor space
         editorSpace = QWidget()
         layout = QHBoxLayout(editorSpace)
         layout.addWidget(leftPanel)
-        layout.addWidget(self.tabWidget)
+        layout.addWidget(rightPanel)
 
         # make Line edit dialog
         self.lineEditDialog = QWidget()
@@ -106,6 +131,7 @@ class ElectroEditor(QMainWindow):
         layout.addWidget(lineEdit)
         self.lineEditDialog.hide()
 
+        # setup automatic hide off status bar
         self.statusBarMessageTimer = QTimer()
 
         # set CSS style
@@ -113,7 +139,6 @@ class ElectroEditor(QMainWindow):
         style = f.read()
         f.close()
         self.componentListWidget.setStyleSheet(style)
-
 
         self.mainLayout.addWidget(editorSpace)
         self.mainLayout.addWidget(self.lineEditDialog)
@@ -129,6 +154,15 @@ class ElectroEditor(QMainWindow):
         self.lastSaveTime = 0
         self.settings = Settings()
 
+        # make help message
+        self.displayScenePoint(QPointF(0, 0), 100)
+        helpText = GraphicsItemText(mapToGrid(self.sceneView().center(),
+                                              MAX_GRID_SIZE),
+                                    QRectF(0, 0,
+                                           8 * MAX_GRID_SIZE,
+                                           MAX_GRID_SIZE))
+        helpText.setText("Press 'H' for display help")
+        self.scene().addGraphicsItem(helpText)
 
 
     def eventFilter(self, object, event):
@@ -353,6 +387,7 @@ class ElectroEditor(QMainWindow):
         self.showComponentInfo()
         QMainWindow.mousePressEvent(self, ev)
         self.dialogLineEditHide()
+        self.helpDialog.hide()
 
         if not self.scene():
             return
@@ -386,6 +421,9 @@ class ElectroEditor(QMainWindow):
             self.dialogLineEditShow("Enter new page name:", dialogOnReturn)
             return
 
+        if key == 72:  # H
+            self.helpDialog.show()
+
         scene = self.scene()
         if not scene:
             return
@@ -396,6 +434,7 @@ class ElectroEditor(QMainWindow):
             self.setTool(None)
             self.setFocus()
             self.resetSelectionItems()
+            self.helpDialog.hide()
             return
 
         # route all key pressed into scene while textEdit mode
@@ -1049,10 +1088,15 @@ class ElectroEditor(QMainWindow):
 
 
     def displayItem(self, item):
-        scene = item.scene()
-        view = scene.views()[0]
         self.tabWidget.setCurrentIndex(scene.num() - 1)
-        view.setZoom(200, item.center())
+        self.displayScenePoint(item.center(), 200, item.scene())
+
+
+    def displayScenePoint(self, point, zoom, scene=None):
+        if not scene:
+            scene = self.scene()
+        view = scene.views()[0]
+        view.setZoom(zoom, point)
 
 
     def displayRemoteLinkPoint(self, linkPoint):
@@ -1135,7 +1179,6 @@ class ElectroEditor(QMainWindow):
 
 
     def saveProject(self, newfileName):
-        cuttentTime = int(time.time())
         if newfileName:
             if newfileName[-3:] != '.es':
                 newfileName += '.es'
@@ -1147,11 +1190,6 @@ class ElectroEditor(QMainWindow):
 
         if not self.projectFileName:
             return
-
-        backupInterval = self.settings.data()['backupInterval']
-        if cuttentTime > (self.lastSaveTime + backupInterval):
-            self.lastSaveTime = cuttentTime
-            self.backupProject()
 
         fileDirName = os.path.dirname(self.projectFileName)
         self.settings.set('lastProjectDir', fileDirName)
@@ -1195,6 +1233,12 @@ class ElectroEditor(QMainWindow):
         if not os.path.isfile(self.projectFileName):
             return
 
+        cuttentTime = int(time.time())
+        backupInterval = self.settings.data()['backupInterval']
+        if cuttentTime < (self.lastSaveTime + backupInterval):
+            return
+
+        self.lastSaveTime = cuttentTime
         baseFileName = os.path.basename(self.projectFileName)
         fileDirName = os.path.dirname(self.projectFileName)
         if fileDirName:
@@ -1315,9 +1359,6 @@ class ElectroEditor(QMainWindow):
             scene.keyShiftRelease()
             scene.keyCTRLRelease()
 
-
-def editorPath():
-    return os.path.dirname(os.path.realpath(sys.argv[0]))
 
 
 def componentsPath():

@@ -769,7 +769,7 @@ class ElectroScene(QGraphicsScene):
 
         if not self.keyCTRL and not self.keyShift:
             # display scene items info
-            if key == 72:  # H
+            if key == 80:  # P
                 print(self.history)
                 print(self)
                 return

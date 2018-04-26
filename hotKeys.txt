@@ -1,0 +1,54 @@
+Tools:
+	1 - trace line
+	2 - draw line
+	3 - draw rectangle
+	4 - draw ellipse
+	5 - draw text
+	L - insert link point
+	T - switch selected lines type (trace/draw)
+	
+Lines, Rectangles, Ellipse:
+	Q - swtitch up view line type
+	Shift + Q - swtitch down view line type
+	W - increase line, rect, ellipse thickness
+	Shift + W - decrease line, rect, ellipse thickness
+	mouse double click onto lines, rect, ellipse - change border color
+	CTRL + mouse double click onto lines, rect, ellipse - change fill color
+
+Groups:
+	CTRL + E - edit selected group index name
+	mouse double click - edit selected group index name
+	Shift + mouse double click - go to parent/children component
+
+------
+Editor operations:
+	CTRL + N - new project
+	CTRL + O - open project
+	CTRL + S - save project
+	CRTL + Z - undo operation
+	CRTL + Y - redo operation
+	CTRL + C - copy selected items
+	CTRL + X - copy and remove selected items
+	CTRL + V - past items from clipboard
+	CTRL + W - save selected items as component
+	CTRL + Shift + S - save project as..
+	CTRL + F - search item by id or index name
+	CTRL + P - ctreate new page
+	CTRL + E - edit current page name / edit selected group
+	CTRL + D - remove current page / remove selected component
+	CTRL + left arrow - move current page left
+	CTRL + right arrow - move current page right
+	Space - rotate selected items
+	G - group selected items
+	Shift + G - ungroup selected groups
+	C - connect two selected link points
+	X - move selected items
+	S - change grid size
+	Del - remove selected items
+
+
+
+
+
+
+

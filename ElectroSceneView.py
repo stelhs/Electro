@@ -72,6 +72,7 @@ class ElectroSceneView(QGraphicsView):
         self.editor.setStatusScale(self.scalePercent)
         self.resetMatrix()
         if percent == 100:
+            self.centerOn(center)
             return
         zoomFactor = percent / 100
         self.scale(zoomFactor, zoomFactor)
@@ -104,8 +105,14 @@ class ElectroSceneView(QGraphicsView):
 
         self.editor.keyReleaseEvent(event)
 
+
     def focusOutEvent(self, event):
         self.editor.focusOutEvent(event)
+
+
+    def center(self):
+        return self.mapToScene(QPoint(self.width() / 2, self.height() / 2))
+
 
 
 
