@@ -33,6 +33,8 @@ class GraphicsItemLine(GraphicsItem, QGraphicsLineItem):
     def updateView(self):
         if self._typeLine == 'trace':
             self.normalPen = self.tracePen
+        else:
+            self.normalPen = self.defaultPen
         GraphicsItem.updateView(self)
 
 

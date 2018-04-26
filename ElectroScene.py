@@ -779,7 +779,7 @@ class ElectroScene(QGraphicsScene):
                 self.changeGridSize()
                 return
 
-            # change lines type
+            # change selected lines type
             if key == 84:  # T
                 if self.mode == 'useTool':
                     self.changeDrawingLinesType()
@@ -1386,6 +1386,7 @@ class ElectroScene(QGraphicsScene):
                 line.setTypeLine('line')
             else:
                 line.setTypeLine('trace')
+        self.update()
 
 
     def update(self):

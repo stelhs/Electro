@@ -671,6 +671,7 @@ class ElectroEditor(QMainWindow):
             string = group.indexName()
 
         def dialogOnReturn(text):
+            text = text.upper()
             if not len(text):
                 group.setIndex(0)
                 group.setPrefixName("")
