@@ -284,12 +284,14 @@ class ElectroScene(QGraphicsScene):
                         continue
                     if item.setSelectPoint(p):
                         self.drawingLine = GraphicsItemLine(lineType)
+                        self.drawingLine.assignNewId()
                         self.addGraphicsItem(self.drawingLine)
                         self.stopLineDrawing()
                         return
 
 
             self.drawingLine = GraphicsItemLine(lineType)
+            self.drawingLine.assignNewId()
             self.drawingLine.setP1(p)
             self.addGraphicsItem(self.drawingLine)
             QGraphicsScene.mousePressEvent(self, ev)
@@ -670,6 +672,7 @@ class ElectroScene(QGraphicsScene):
                     self.drawingRect = None
                     return
                 rectangle = GraphicsItemRect(self.drawingRect.rect())
+                rectangle.assignNewId()
                 if rectangle.isNullSize():
                     return
                 self.drawingRect.remove()
@@ -683,6 +686,7 @@ class ElectroScene(QGraphicsScene):
                     self.drawingEllipse = None
                     return
                 ellipse = GraphicsItemEllipse(self.drawingEllipse.rect())
+                ellipse.assignNewId()
                 if ellipse.isNullSize():
                     return
                 self.drawingEllipse.remove()
@@ -698,6 +702,7 @@ class ElectroScene(QGraphicsScene):
                     return
                 text = GraphicsItemText(rect.topLeft(),
                                         QRectF(0, 0, rect.width(), rect.height()))
+                text.assignNewId()
                 if text.isNullSize():
                     return
                 self.drawingText.remove()
@@ -1048,6 +1053,7 @@ class ElectroScene(QGraphicsScene):
         if mode == "pastLinkPoint":
             pos = self.mapToGrid(self.mousePos, MAX_GRID_SIZE)
             item = GraphicsItemLink(pos)
+            item.assignNewId()
             item.setCenter(pos)
             self.resetSelectionItems()
             self.addGraphicsItem(item)
@@ -1260,6 +1266,7 @@ class ElectroScene(QGraphicsScene):
             name = "undefined"
 
         group = GraphicsItemGroup()
+        group.assignNewId()
         group.setName(name)
         self.resetSelectionItems()
 
@@ -1281,10 +1288,10 @@ class ElectroScene(QGraphicsScene):
         self.removeGraphicsItem(group)
         for item in items:
             pos = item.pos()
+            item.assignNewId()
             item.setParent(None)
             if item.type() == GROUP_TYPE and item.prefixName():
                 self.editor.setUniqueComponentIndex(item)
-            item.generateNewId()
             self.addGraphicsItem(item)
             item.setPos(pos)
 

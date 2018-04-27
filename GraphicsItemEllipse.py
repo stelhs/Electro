@@ -197,7 +197,6 @@ class GraphicsItemEllipse(GraphicsItem, QGraphicsEllipseItem):
                       properties['rectSize']['h'])
         if 'fillColor' in properties:
             if properties['fillColor'] == "None":
-                print("setFillColor(None)")
                 self.setFillColor(None)
             else:
                 self.setFillColor(QColor(properties['fillColor']['R'],

@@ -107,11 +107,13 @@ def createGraphicsObjectByProperties(ogjectProperties, withId=False):
         item = GraphicsItemLink.GraphicsItemLink()
         item.setProperties(ogjectProperties, withId)
 
+    if not withId:
+        item.assignNewId()
     return item
 
 
 class GraphicsItem():
-    idList = []
+    lastId = 0
     MARK_SIZE = 8
 
     def __init__(self):
@@ -123,15 +125,14 @@ class GraphicsItem():
         self._name = ""
         self._parentItem = None
         self.mouseMoveDelta = None
-        self.generateNewId()
         self._color = Color(0, 0, 200)
-        print("new item was created %d" % self.id())
         self.defaultPen = QPen(self._color, 2, Qt.SolidLine, Qt.RoundCap)
         self.normalPen = self.defaultPen
         self.selectedPen = QPen(Qt.magenta, 3, Qt.SolidLine, Qt.RoundCap)
         self.highLightPen = QPen(Qt.blue, 4, Qt.SolidLine, Qt.RoundCap)
         self._currentPen = self.normalPen
         self._zIndex = 1
+        self._id = 0
 
 
     def type(self):
@@ -146,6 +147,12 @@ class GraphicsItem():
         return self._id
 
 
+    def assignNewId(self):
+        GraphicsItem.lastId += 1
+        self._id = GraphicsItem.lastId
+        print("new item was created %d" % self.id())
+
+
     def setName(self, name):
         self._name = name
 
@@ -154,54 +161,10 @@ class GraphicsItem():
         return self._name
 
 
-    def generateNewId(self):
-        self._id = GraphicsItem.getFreeId()
-
-
     def setId(self, id):
-        if id == 0:
-            print("ZERO id incorrect! id = %d" % id)
-
-        for existId in GraphicsItem.idList:
-            if id == existId and self.id() != id:
-                print("\nDULICATE id detected for %d!\n" % id)
-                break
-
-        GraphicsItem.idList.remove(self.id())
+        if id > GraphicsItem.lastId:
+            GraphicsItem.lastId = id
         self._id = id
-        GraphicsItem.idList.append(id)
-
-
-    @staticmethod
-    def checkDuplicateId():
-        for id1 in GraphicsItem.idList:
-            cnt = 0
-            for id2 in GraphicsItem.idList:
-                if id1 == id2:
-                    cnt += 1
-            if cnt > 1:
-                print("\n!!!detected duplicate!!! %d count %d\n" % (id1, cnt))
-
-
-    def removeId(self):
-        if not self._id:
-            return
-        print("remove id %d" % self.id())
-        GraphicsItem.idList.remove(self.id())
-        self._id = 0
-
-
-    @staticmethod
-    def getFreeId():
-        GraphicsItem.idList.sort()
-        freeId = 1
-        for id in GraphicsItem.idList:
-            if id != freeId:
-                GraphicsItem.idList.append(freeId)
-                return freeId
-            freeId += 1
-        GraphicsItem.idList.append(freeId)
-        return freeId
 
 
     def addr(self):
@@ -504,12 +467,7 @@ class GraphicsItem():
 
     def remove(self):
         self.color().remove()
-        if self.id() in GraphicsItem.idList:
-            GraphicsItem.idList.remove(self.id())
         self._id = 0
-        for item in self.graphicsItemsList:
-            if item.id() in GraphicsItem.idList:
-                item.remove()
 
 
     def __str__(self):

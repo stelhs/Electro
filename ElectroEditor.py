@@ -151,17 +151,17 @@ class ElectroEditor(QMainWindow):
 
         # make components list
         self.loadComponents()
-        self.lastSaveTime = 0
+        self.lastBackupTime = 0
         self.settings = Settings()
 
         # make help message
-        self.displayScenePoint(QPointF(0, 0), 100)
         helpText = GraphicsItemText(mapToGrid(self.sceneView().center(),
                                               MAX_GRID_SIZE),
                                     QRectF(0, 0,
                                            8 * MAX_GRID_SIZE,
                                            MAX_GRID_SIZE))
         helpText.setText("Press 'H' for display help")
+        helpText.assignNewId()
         self.scene().addGraphicsItem(helpText)
 
 
@@ -189,6 +189,7 @@ class ElectroEditor(QMainWindow):
         self.pages.append(page)
         self.actualizePagesTabs(page)
         self.setEditorTool(page.scene().currentTool())
+        self.displayScenePoint(QPointF(0, 0), 100, page.scene())
 
 
     def actualizePagesTabs(self, currentPage=None):
@@ -514,7 +515,6 @@ class ElectroEditor(QMainWindow):
                     return
                 self.resetEditor()
                 self.addPage("Undefined")
-                self.displayScenePoint(QPointF(0, 0), 100)
 
             validator = YesNoValidator(self)
             self.dialogLineEditShow("Create new Project?:",
@@ -868,7 +868,7 @@ class ElectroEditor(QMainWindow):
 
 
     def showStatusBarMessage(self, message, time=5, color="black"):
-        self.statusBar.showMessage(message)
+        self.statusBar.showMessage(unicode(message))
         if not time:
             return
 
@@ -1212,6 +1212,9 @@ class ElectroEditor(QMainWindow):
         print("saveProjectToFile %s" % fileName)
         if not self.currectPage():
             return False
+
+        self.backupProject()
+
         viewCenter = self.sceneView().center()
         header = {"app": "Electro Schematic editor",
                   "version": self.EDITOR_VERSION,
@@ -1254,10 +1257,10 @@ class ElectroEditor(QMainWindow):
 
         cuttentTime = int(time.time())
         backupInterval = self.settings.data()['backupInterval']
-        if cuttentTime < (self.lastSaveTime + backupInterval):
+        if cuttentTime < (self.lastBackupTime + backupInterval):
             return
 
-        self.lastSaveTime = cuttentTime
+        self.lastBackupTime = cuttentTime
         baseFileName = os.path.basename(self.projectFileName)
         fileDirName = os.path.dirname(self.projectFileName)
         if fileDirName:
@@ -1360,6 +1363,33 @@ class ElectroEditor(QMainWindow):
         self.update()
 
 
+    def checkForDuplicateItemId(self):
+        usedIdList = []
+        collisionItems = []
+        for item in self.graphicsItems():
+            collision = False
+            if item.id() == 0:
+                print("DETECT NULL")
+                collisionItems.append(item)
+                continue
+
+            for id in usedIdList:
+                if item.id() == id:
+                    print("detected collision id %d" % id)
+                    collision = True
+                    break
+
+            if not collision:
+                usedIdList.append(item.id())
+                continue
+
+            collisionItems.append(item)
+
+        print("collision count = %d" % len(collisionItems))
+        for item in collisionItems:
+            item.assignNewId()
+
+
     def resetEditor(self):
         pagesCopy = []
         for page in self.pages:
@@ -1370,6 +1400,8 @@ class ElectroEditor(QMainWindow):
         self.pages = []
         self.connectionsList = []
         self.actualizePagesTabs()
+        GraphicsItem.lastId = 0
+        Color.resetColorHistory()
 
 
     def focusOutEvent(self, event):
@@ -1377,8 +1409,11 @@ class ElectroEditor(QMainWindow):
         self.keyShift = False
         for page in self.pages:
             scene = page.scene()
+            view = page.sceneView()
             scene.keyShiftRelease()
             scene.keyCTRLRelease()
+            view.keyShiftRelease()
+            view.keyCTRLRelease()
 
 
 

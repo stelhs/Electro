@@ -50,6 +50,11 @@ class Color (QColor):
         return colors
 
 
+    @staticmethod
+    def resetColorHistory():
+        Color.usedColorsList = []
+
+
     def __eq__(self, other):
         return (self.red() == other.red() and
                 self.green() == other.green() and

@@ -65,12 +65,25 @@ class GraphicsItemGroup(GraphicsItem):
 
 
     def updateView(self):
-        GraphicsItem.updateView(self)
         text = "%s" % self.indexName()
         if self._parentComponentGroup:
             text += "(%s)" % self._parentComponentGroup.addr()
         self.indexNameLabel.setText(text)
         self.indexNameLabel.setPos(self.pos() - QPointF(MAX_GRID_SIZE, 0))
+
+        self.setZValue(self._zIndex)
+        if self.highlighted:
+            for item in self.graphicsItemsList:
+                item.highlight()
+            return
+        if self.selected:
+            for item in self.graphicsItemsList:
+                item.select()
+            return
+
+        for item in self.graphicsItemsList:
+            item.resetSelection()
+            item.unHighlight()
 
 
     def generateNewId(self):
@@ -136,6 +149,7 @@ class GraphicsItemGroup(GraphicsItem):
 
         for item in items:
             item.removeFromQScene()
+            item.setId(0)
             self.graphicsItemsList.append(item)
 
         poligon = QPolygonF()
@@ -315,7 +329,7 @@ class GraphicsItemGroup(GraphicsItem):
                 if typeByName(itemProperties['type']) == GROUP_TYPE:
                     item = GraphicsItemGroup()
 
-                item.setProperties(itemProperties, setId)
+                item.setProperties(itemProperties)
                 newItems.append(item)
 
         self.addItems(newItems)

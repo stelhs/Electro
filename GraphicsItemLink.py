@@ -11,12 +11,9 @@ class GraphicsItemLink(GraphicsItem):
         self._scene = None
 
         self.line = GraphicsItemLine()
-        self.line.removeId()
         self.ellipse = GraphicsItemEllipse()
-        self.ellipse.removeId()
         self.ellipse.setBrush(QBrush(self.normalPen.color()))
         self.addrText = GraphicsItemText()
-        self.addrText.removeId()
         self.line.setParent(self)
         self.ellipse.setParent(self)
         self.addrText.setParent(self)

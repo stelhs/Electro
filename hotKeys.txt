@@ -20,6 +20,10 @@ Groups:
 	mouse double click - edit selected group index name
 	Shift + mouse double click - go to parent/children component
 
+All items:
+	'+' - increase Z-index of selected items
+	'-' - decrease Z-index of selected items
+
 ------
 Editor operations:
 	CTRL + N - new project

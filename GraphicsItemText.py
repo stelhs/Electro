@@ -79,7 +79,8 @@ class GraphicsItemText(GraphicsItem, QGraphicsTextItem):
         if self.highlighted:
             self.highLightRect.setPos(self.pos())
             self.highLightRect.setRect(self._boundingRect())
-            self.scene().addItem(self.highLightRect)
+            if not self.highLightRect.scene():
+                self.scene().addItem(self.highLightRect)
             return
         if self.highLightRect.scene():
             self.scene().removeItem(self.highLightRect)
