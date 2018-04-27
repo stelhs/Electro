@@ -1,4 +1,4 @@
-from PyQt4.QtGui import *
+from PyQt5.QtGui import *
 from ElectroEditor import *
 from GraphicsItem import *
 
@@ -47,7 +47,7 @@ class ComponentNameValidator(DialogLineEditValidator):
     def validate(self, string, pos):
         string = str(string)
         if not self.stringIsValid(string):
-            return QValidator.Invalid, pos
+            return QValidator.Invalid, string, pos
 
         words = string.split()
         if len(words) != 2:
@@ -62,11 +62,11 @@ class ComponentNameValidator(DialogLineEditValidator):
         for component in self.editor.componentList:
             if component.name() == name:
                 self.sendError("component with name '%s' already exists" % name)
-                return QValidator.Intermediate, pos
+                return QValidator.Intermediate, string, pos
 
         self.sendOkMessage("OK! Component name:'%s' and prefix:'%s'" %
                            (name, prefix))
-        return QValidator.Acceptable, pos
+        return QValidator.Acceptable, string, pos
 
 
 
@@ -81,10 +81,10 @@ class YesNoValidator(DialogLineEditValidator):
         if (string != 'yes' and string != 'y' and
             string != 'no' and string != 'n'):
             self.sendError("Enrer Yes or No")
-            return QValidator.Intermediate, pos
+            return QValidator.Intermediate, string, pos
 
         self.sendOkMessage("OK")
-        return QValidator.Acceptable, pos
+        return QValidator.Acceptable, string, pos
 
 
 
@@ -98,24 +98,24 @@ class EditGroupValidator(DialogLineEditValidator):
     def validate(self, string, pos):
         string = str(string).upper()
         if not self.stringIsValid(string):
-            return QValidator.Invalid, pos
+            return QValidator.Invalid, string, pos
 
         if not len(string):
-            return QValidator.Acceptable, pos
+            return QValidator.Acceptable, string, pos
 
         # string can not begin with digit
         if string.isdigit():
-            return QValidator.Invalid, pos
+            return QValidator.Invalid, string, pos
 
         unpackedName = self.editor.unpackGroupIndexName(string)
 
         # space for after complete
         if string[-1] == ' ':
             if len(string) == 1:
-                return QValidator.Invalid, pos
+                return QValidator.Invalid, string, pos
 
             if string[-2].isdigit():
-                return QValidator.Invalid, pos
+                return QValidator.Invalid, string, pos
 
             if string[-2] == '.':
                 indexName = self.editor.packGroupIndexName(unpackedName)
@@ -130,30 +130,30 @@ class EditGroupValidator(DialogLineEditValidator):
                 index = self.editor.findFreeComponentIndex(string[:-1])
 
             self.lineEdit.setText("%s%d" % (prefix, index))
-            return QValidator.Invalid, pos
+            return QValidator.Invalid, string, pos
 
         # check for multiple name
         if string[-1].find('.') > 0:
             if not unpackedName[2]:
                 self.sendError("Not complete")
-                return QValidator.Intermediate, pos
+                return QValidator.Intermediate, string, pos
 
             indexName = self.editor.packGroupIndexName(unpackedName[:-1])
             group = self.editor.findGroupByIndexName(indexName, self.group)
             if not group:
                 self.sendError("Parent component '%s' not exists" % indexName)
-                return QValidator.Intermediate, pos
+                return QValidator.Intermediate, string, pos
             self.sendOkMessage("OK")
-            return QValidator.Acceptable, pos
+            return QValidator.Acceptable, string, pos
 
         # check for name's busyness
         group = self.editor.findGroupByIndexName(string, self.group)
         if group:
             self.sendOkMessage("component '%s' already exists! Compnent will be overwritten!" % string)
-            return QValidator.Acceptable, pos
+            return QValidator.Acceptable, string, pos
 
         self.sendOkMessage("OK")
-        return QValidator.Acceptable, pos
+        return QValidator.Acceptable, string, pos
 
 
 
@@ -167,26 +167,26 @@ class ConnectinValidator(DialogLineEditValidator):
         validsymbols = "0123456789 "
         string = str(string)
         if not self.stringIsValid(string):
-            return QValidator.Invalid, pos
+            return QValidator.Invalid, string, pos
 
         self.editor.resetSelectionItems()
 
         if not len(string):
-            return QValidator.Intermediate, pos
+            return QValidator.Intermediate, string, pos
 
         for i in range(len(string)):
             sym = string[i]
             if validsymbols.find(sym) < 0:
-                 return QValidator.Invalid, i
+                 return QValidator.Invalid, string, i
 
         words = string.split()
         if len(words) != 2:
             self.sendError("Only two LinkPoints allowed")
-            return QValidator.Intermediate, pos
+            return QValidator.Intermediate, string, pos
 
         if words[0] == words[1]:
             self.sendError("LinkPoints is equal")
-            return QValidator.Intermediate, pos
+            return QValidator.Intermediate, string, pos
 
         linkPoints = []
         warning = False
@@ -195,11 +195,11 @@ class ConnectinValidator(DialogLineEditValidator):
             item = self.editor.itemById(itemId)
             if not item:
                 self.sendError("Item id:%d is not exist" % itemId)
-                return QValidator.Intermediate, pos
+                return QValidator.Intermediate, string, pos
 
             if item.type() != LINK_TYPE:
                 self.sendError("Item id:%d is not LinkPoint" % itemId)
-                return QValidator.Intermediate, pos
+                return QValidator.Intermediate, string, pos
             linkPoint = item
             linkPoints.append(linkPoint)
 
@@ -214,7 +214,7 @@ class ConnectinValidator(DialogLineEditValidator):
             self.sendOkMessage("OK")
 
         self.editor.itemsAddToSelection(linkPoints)
-        return QValidator.Acceptable, pos
+        return QValidator.Acceptable, string, pos
 
 
 
@@ -229,19 +229,19 @@ class IntValidator(DialogLineEditValidator):
         validsymbols = "0123456789"
         string = str(string)
         if not self.stringIsValid(string):
-            return QValidator.Invalid, pos
+            return QValidator.Invalid, string, pos
 
         if not len(string):
-            return QValidator.Intermediate, pos
+            return QValidator.Intermediate, string, pos
 
         enteredInt = int(string)
         for i in self._range:
             if i == enteredInt:
                 self.sendOkMessage("OK")
-                return QValidator.Acceptable, pos
+                return QValidator.Acceptable, string, pos
 
         self.sendError("Incorrect number")
-        return QValidator.Intermediate, pos
+        return QValidator.Intermediate, string, pos
 
 
 

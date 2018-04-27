@@ -3,7 +3,7 @@ from ElectroSceneView import *
 from Color import *
 from Settings import *
 from LineEditValidators import *
-from PyQt4.Qt import QWidget, QMainWindow, QLabel, QPoint, QTimer
+from PyQt5.Qt import QWidget, QMainWindow, QLabel, QPoint, QTimer
 import os, glob, sys, pprint, re
 from shutil import copyfile
 from datetime import datetime
@@ -320,12 +320,12 @@ class ElectroEditor(QMainWindow):
     def dialogColorSelect(self, currentColor, alphaChannel=False):
         if not currentColor:
             currentColor = QColor(255, 255, 255)
-        whiteColorRgb = QColor(255, 255, 255).rgb()
+        whiteColorRgb = QColor(255, 255, 255)
         for index in range(self.colorDialog.customCount()):
             self.colorDialog.setCustomColor(index, whiteColorRgb)
         index = 0
         for color in Color.usedColors():
-            self.colorDialog.setCustomColor(index, color.rgb())
+            self.colorDialog.setCustomColor(index, color)
             index += 1
         if alphaChannel:
             return self.colorDialog.getColor(currentColor,
@@ -387,7 +387,12 @@ class ElectroEditor(QMainWindow):
         self.scene().setTool(tool)
 
 
+    def mouseDoubleClickEvent(self, ev):
+        pass
+
+
     def mousePressEvent(self, ev):
+        print("mousePressEvent")
         self.componentListWidget.clearSelection()
         self.showComponentInfo()
         QMainWindow.mousePressEvent(self, ev)
@@ -405,7 +410,7 @@ class ElectroEditor(QMainWindow):
 
     def keyPressEvent(self, event):
         key = event.key()
-        print key
+        print(key)
 
         # detect CTRL pressed
         if key == 16777249:  # CTRL
@@ -502,7 +507,7 @@ class ElectroEditor(QMainWindow):
             lastDir = self.settings.data()['lastProjectDir']
             file = str(QFileDialog.getOpenFileName(None, "open schematic",
                                         filter="Electro schematic file (*.es)",
-                                        directory=lastDir))
+                                        directory=lastDir)[0])
             if not file:
                 return
             self.openProject(file)
@@ -868,7 +873,7 @@ class ElectroEditor(QMainWindow):
 
 
     def showStatusBarMessage(self, message, time=5, color="black"):
-        self.statusBar.showMessage(unicode(message))
+        self.statusBar.showMessage(message)
         if not time:
             return
 
@@ -1182,6 +1187,7 @@ class ElectroEditor(QMainWindow):
                     continue
                 scene.itemAddToSelection(item)
 
+
     def allGraphicsItems(self, type=None):
         items = []
         for page in self.pages:
@@ -1448,7 +1454,7 @@ class PageWidget(QWidget):
 
 
     def name(self):
-        return unicode(self._name)
+        return self._name
 
 
     def setName(self, name):

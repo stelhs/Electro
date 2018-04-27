@@ -1,8 +1,8 @@
-from PyQt4.QtGui import *
-from PyQt4.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtCore import *
 from ElectroEditor import *
 from History import *
-from gtk.keysyms import ordfeminine
+# from gtk.keysyms import ordfeminine
 import json
 from GraphicsItem import *
 from GraphicsItemLine import *
@@ -44,8 +44,10 @@ class ElectroScene(QGraphicsScene):
         self.gridSize = self.minGridSize
         self.history = History(self)
 
-        self.cursorX = QGraphicsLineItem(None, self)
-        self.cursorY = QGraphicsLineItem(None, self)
+        self.cursorX = QGraphicsLineItem(None)
+        self.cursorY = QGraphicsLineItem(None)
+        self.addItem(self.cursorX)
+        self.addItem(self.cursorY)
         self.cursorX.setPen(QPen(Qt.blue, 1, Qt.SolidLine))
         self.cursorY.setPen(QPen(Qt.blue, 1, Qt.SolidLine))
 
@@ -104,7 +106,7 @@ class ElectroScene(QGraphicsScene):
         v = (self.sceneRectSize.y() / self.verticalFieldsCount) * self.minGridSize
         x = int(pos.x() / h) + 1
         y = int(pos.y() / v)
-        return "%s%d" % (str(unichr(65 + y)), x)
+        return "%s%d" % (chr(65 + y), x)
 
 
     def drawBackground(self, qp, viewRect):
@@ -197,7 +199,7 @@ class ElectroScene(QGraphicsScene):
                           pix(self.verticalFieldsWidth),
                           pix(verticalFieldSize))
             qp.drawRect(rect)
-            qp.drawText(rect, Qt.AlignCenter, "%s" % str(unichr(65 + i)))
+            qp.drawText(rect, Qt.AlignCenter, "%s" % chr(65 + i))
 
 
     def mapToGrid(self, arg, gridSize=None):
@@ -738,7 +740,7 @@ class ElectroScene(QGraphicsScene):
 
 
     def graphicItemByCoordinate(self, point):
-        item = self.itemAt(point)
+        item = self.itemAt(point, self.views()[0].transform())
         if not item or not self.isGraphicsItem(item):
             return False
         return item.root()
@@ -1016,7 +1018,7 @@ class ElectroScene(QGraphicsScene):
 
 
     def itemById(self, id):
-        for item in self.allGraphicsItems():
+        for item in self.graphicsItems():
             if item.id() == id:
                 return item
         return None
@@ -1535,9 +1537,11 @@ class RectDrawing():
 
         if topLeft:
             if self._type == "rectangle":
-                self._rectGraphics = QGraphicsRectItem(None, self._scene)
+                self._rectGraphics = QGraphicsRectItem(None)
+                self._scene.addItem(self._rectGraphics)
             elif self._type == "ellipse":
-                self._rectGraphics = QGraphicsEllipseItem(None, self._scene)
+                self._rectGraphics = QGraphicsEllipseItem(None)
+                self._scene.addItem(self._rectGraphics)
             else:
                 return None
 

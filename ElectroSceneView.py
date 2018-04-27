@@ -1,5 +1,5 @@
-from PyQt4.QtGui import *
-from PyQt4.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtCore import *
 from ElectroEditor import *
 
 
@@ -69,7 +69,7 @@ class ElectroSceneView(QGraphicsView):
     def setZoom(self, percent, center=None):
         self.scalePercent = percent
         self.editor.setStatusScale(self.scalePercent)
-        self.resetMatrix()
+        self.resetTransform()
         if percent == 100:
             self.centerOn(center)
             return
@@ -87,7 +87,7 @@ class ElectroSceneView(QGraphicsView):
     def wheelEvent(self, event):
         if self.keyCTRL:
             deltaY = 0
-            if event.delta() > 0:
+            if event.angleDelta().y() > 0:
                 deltaY += 80
             else:
                 deltaY -= 80
@@ -97,7 +97,7 @@ class ElectroSceneView(QGraphicsView):
 
         if self.keyShift:
             deltaX = 0
-            if event.delta() > 0:
+            if event.angleDelta().y() > 0:
                 deltaX += 80
             else:
                 deltaX -= 80
@@ -105,7 +105,7 @@ class ElectroSceneView(QGraphicsView):
             bar.setValue(bar.value() + deltaX)
             return
 
-        if event.delta() > 0:
+        if event.angleDelta().y() > 0:
             self.zoomIn(event.pos())
         else:
             self.zoomOut(event.pos())

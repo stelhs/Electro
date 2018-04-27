@@ -3,7 +3,7 @@ from GraphicsItemLine import *
 from GraphicsItemRect import *
 from GraphicsItemEllipse import *
 from GraphicsItemText import *
-from PyQt4.Qt import QGraphicsEllipseItem, QPoint, QGraphicsPolygonItem
+from PyQt5.Qt import QGraphicsEllipseItem, QPoint, QGraphicsPolygonItem
 from math import *
 
 
@@ -24,6 +24,7 @@ class GraphicsItemGroup(GraphicsItem):
         self._parentComponentGroup = None
         self.needToRecalculateBoundingRect = True
         self._boundingRect = None
+        self.groupLastId = 0
 
         self.r1 = None
         self.r2 = None
@@ -149,7 +150,8 @@ class GraphicsItemGroup(GraphicsItem):
 
         for item in items:
             item.removeFromQScene()
-            item.setId(0)
+            self.groupLastId += 1
+            item.setId(self.groupLastId)
             self.graphicsItemsList.append(item)
 
         poligon = QPolygonF()

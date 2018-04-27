@@ -1,5 +1,5 @@
-from PyQt4.QtGui import *
-from PyQt4.Qt import QPoint
+from PyQt5.QtGui import *
+from PyQt5.Qt import QPoint
 from GraphicsItem import *
 
 
@@ -68,14 +68,16 @@ class GraphicsItemLine(GraphicsItem, QGraphicsLineItem):
         if self.parent():
             return
 
-        self.markP1 = QGraphicsRectItem(None, self.scene())
+        self.markP1 = QGraphicsRectItem(None)
+        self.scene().addItem(self.markP1)
         self.markP1.setZValue(0)
         self.markP1.setPen(QPen(Qt.black, 1, Qt.SolidLine))
         x1 = self.p1().x() - self.MARK_SIZE / 2
         y1 = self.p1().y() - self.MARK_SIZE / 2
         self.markP1.setRect(x1, y1, self.MARK_SIZE, self.MARK_SIZE)
 
-        self.markP2 = QGraphicsRectItem(None, self.scene())
+        self.markP2 = QGraphicsRectItem(None)
+        self.scene().addItem(self.markP2)
         self.markP2.setZValue(0)
         self.markP2.setPen(QPen(Qt.black, 1, Qt.SolidLine))
         x1 = self.p2().x() - self.MARK_SIZE / 2

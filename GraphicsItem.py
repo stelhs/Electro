@@ -1,6 +1,6 @@
 from ElectroScene import *
-from PyQt4.QtGui import *
-from PyQt4.Qt import QPoint
+from PyQt5.QtGui import *
+from PyQt5.Qt import *
 from Color import *
 from pprint import *
 import json
@@ -9,107 +9,6 @@ import copy
 
 
 MAX_GRID_SIZE = 20
-
-
-# TODO: implements enum
-NOT_DEFINED_TYPE = QGraphicsItem.UserType + 1
-LINE_TYPE = QGraphicsItem.UserType + 2
-GROUP_TYPE = QGraphicsItem.UserType + 3
-RECT_TYPE = QGraphicsItem.UserType + 4
-ELLIPSE_TYPE = QGraphicsItem.UserType + 5
-LINK_TYPE = QGraphicsItem.UserType + 6
-TEXT_TYPE = QGraphicsItem.UserType + 7
-
-graphicsObjectsTypeNames = {
-    NOT_DEFINED_TYPE: "not_defined",
-    LINE_TYPE: "line",
-    GROUP_TYPE: "group",
-    RECT_TYPE: "rectangle",
-    ELLIPSE_TYPE: "ellipse",
-    LINK_TYPE: "link",
-    TEXT_TYPE: "text"
-}
-
-graphicsObjectsPenStyleNames = {
-    1: "solid",
-    2: "dashLine",
-    3: "dotLine",
-    4: "dashDotLine",
-    5: "dashDotDotLine",
-}
-
-
-def typeByName(name):
-    for type, value in graphicsObjectsTypeNames.items():
-        if name == value:
-            return type
-    return NOT_DEFINED_TYPE
-
-
-def penStyleByName(name):
-    for type, value in graphicsObjectsPenStyleNames.items():
-        if name == value:
-            return type
-    return 1
-
-
-def mapToGrid(arg, gridSize):
-    argType = arg.__class__.__name__
-    if argType == 'QPointF':
-        point = arg
-        s = gridSize
-        x = round(point.x() / s) * s
-        y = round(point.y() / s) * s
-        return QPointF(x, y)
-
-    if argType == 'QRectF':
-        rect = arg
-        x = rect.topLeft().x() - gridSize
-        y = rect.topLeft().y() - gridSize
-        topLeft = mapToGrid(QPointF(x, y), gridSize)
-        x = rect.bottomRight().x() + gridSize
-        y = rect.bottomRight().y() + gridSize
-        bottomRight = mapToGrid(QPointF(x, y), gridSize)
-        rect = QRectF(topLeft, bottomRight)
-        return rect
-
-
-def createGraphicsObjectByProperties(ogjectProperties, withId=False):
-    import GraphicsItemLine
-    import GraphicsItemRect
-    import GraphicsItemEllipse
-    import GraphicsItemText
-    import GraphicsItemGroup
-    import GraphicsItemLink
-
-    item = None
-    if typeByName(ogjectProperties['type']) == GROUP_TYPE:
-        item = GraphicsItemGroup.GraphicsItemGroup()
-        item.setProperties(ogjectProperties, withId)
-
-    if typeByName(ogjectProperties['type']) == LINE_TYPE:
-        item = GraphicsItemLine.GraphicsItemLine()
-        item.setProperties(ogjectProperties, withId)
-
-    if typeByName(ogjectProperties['type']) == RECT_TYPE:
-        item = GraphicsItemRect.GraphicsItemRect()
-        item.setProperties(ogjectProperties, withId)
-
-    if typeByName(ogjectProperties['type']) == ELLIPSE_TYPE:
-        item = GraphicsItemEllipse.GraphicsItemEllipse()
-        item.setProperties(ogjectProperties, withId)
-
-    if typeByName(ogjectProperties['type']) == TEXT_TYPE:
-        item = GraphicsItemText.GraphicsItemText()
-        item.setProperties(ogjectProperties, withId)
-
-    if typeByName(ogjectProperties['type']) == LINK_TYPE:
-        item = GraphicsItemLink.GraphicsItemLink()
-        item.setProperties(ogjectProperties, withId)
-
-    if not withId:
-        item.assignNewId()
-    return item
 
 
 class GraphicsItem():
@@ -491,6 +390,105 @@ class GraphicsItem():
         return str
 
 
+# TODO: implements enum
+NOT_DEFINED_TYPE = QGraphicsItem.UserType + 1
+LINE_TYPE = QGraphicsItem.UserType + 2
+GROUP_TYPE = QGraphicsItem.UserType + 3
+RECT_TYPE = QGraphicsItem.UserType + 4
+ELLIPSE_TYPE = QGraphicsItem.UserType + 5
+LINK_TYPE = QGraphicsItem.UserType + 6
+TEXT_TYPE = QGraphicsItem.UserType + 7
+
+graphicsObjectsTypeNames = {
+    NOT_DEFINED_TYPE: "not_defined",
+    LINE_TYPE: "line",
+    GROUP_TYPE: "group",
+    RECT_TYPE: "rectangle",
+    ELLIPSE_TYPE: "ellipse",
+    LINK_TYPE: "link",
+    TEXT_TYPE: "text"
+}
+
+graphicsObjectsPenStyleNames = {
+    1: "solid",
+    2: "dashLine",
+    3: "dotLine",
+    4: "dashDotLine",
+    5: "dashDotDotLine",
+}
+
+
+def typeByName(name):
+    for type, value in graphicsObjectsTypeNames.items():
+        if name == value:
+            return type
+    return NOT_DEFINED_TYPE
+
+
+def penStyleByName(name):
+    for type, value in graphicsObjectsPenStyleNames.items():
+        if name == value:
+            return type
+    return 1
+
+
+def mapToGrid(arg, gridSize):
+    argType = arg.__class__.__name__
+    if argType == 'QPointF':
+        point = arg
+        s = gridSize
+        x = round(point.x() / s) * s
+        y = round(point.y() / s) * s
+        return QPointF(x, y)
+
+    if argType == 'QRectF':
+        rect = arg
+        x = rect.topLeft().x() - gridSize
+        y = rect.topLeft().y() - gridSize
+        topLeft = mapToGrid(QPointF(x, y), gridSize)
+        x = rect.bottomRight().x() + gridSize
+        y = rect.bottomRight().y() + gridSize
+        bottomRight = mapToGrid(QPointF(x, y), gridSize)
+        rect = QRectF(topLeft, bottomRight)
+        return rect
+
+
+def createGraphicsObjectByProperties(ogjectProperties, withId=False):
+    import GraphicsItemLine
+    import GraphicsItemRect
+    import GraphicsItemEllipse
+    import GraphicsItemText
+    import GraphicsItemGroup
+    import GraphicsItemLink
+
+    item = None
+    if typeByName(ogjectProperties['type']) == GROUP_TYPE:
+        item = GraphicsItemGroup.GraphicsItemGroup()
+        item.setProperties(ogjectProperties, withId)
+
+    if typeByName(ogjectProperties['type']) == LINE_TYPE:
+        item = GraphicsItemLine.GraphicsItemLine()
+        item.setProperties(ogjectProperties, withId)
+
+    if typeByName(ogjectProperties['type']) == RECT_TYPE:
+        item = GraphicsItemRect.GraphicsItemRect()
+        item.setProperties(ogjectProperties, withId)
+
+    if typeByName(ogjectProperties['type']) == ELLIPSE_TYPE:
+        item = GraphicsItemEllipse.GraphicsItemEllipse()
+        item.setProperties(ogjectProperties, withId)
+
+    if typeByName(ogjectProperties['type']) == TEXT_TYPE:
+        item = GraphicsItemText.GraphicsItemText()
+        item.setProperties(ogjectProperties, withId)
+
+    if typeByName(ogjectProperties['type']) == LINK_TYPE:
+        item = GraphicsItemLink.GraphicsItemLink()
+        item.setProperties(ogjectProperties, withId)
+
+    if not withId:
+        item.assignNewId()
+    return item
 
 
 

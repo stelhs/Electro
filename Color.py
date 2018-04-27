@@ -1,5 +1,5 @@
-from PyQt4.QtGui import *
-from PyQt4.Qt import QPoint
+from PyQt5.QtGui import *
+from PyQt5.Qt import QPoint
 
 
 class Color (QColor):
@@ -24,29 +24,28 @@ class Color (QColor):
     def storeColor(color):
         exist = False
         for row in Color.usedColorsList:
-            existColor, counter = row.items()[0]
+            existColor = row['color']
             if existColor == color:
                 exist = True
                 break
         if exist:
-            row[existColor] += 1
+            row['cnt'] += 1
             return
-        Color.usedColorsList.append({color: 1})
+        Color.usedColorsList.append({'color': color,
+                                     'cnt': 1})
 
 
     @staticmethod
     def usedColorsPrint():
         for row in Color.usedColorsList:
-            color, counter = row.items()[0]
-            print("%s - %d" % (color, counter))
+            print("%s - %d" % (row['color'], row['cnt']))
 
 
     @staticmethod
     def usedColors():
         colors = []
         for row in Color.usedColorsList:
-            color, counter = row.items()[0]
-            colors.append(color)
+            colors.append(row['color'])
         return colors
 
 
@@ -69,10 +68,9 @@ class Color (QColor):
 
     def remove(self):
         for row in Color.usedColorsList:
-            color, counter = row.items()[0]
-            if color == self:
-                row[color] -= 1
-                if not row[color]:
+            if row['color'] == self:
+                row['cnt'] -= 1
+                if not row['cnt']:
                     Color.usedColorsList.remove(row)
                     return
 

@@ -1,5 +1,5 @@
 from GraphicsItem import *
-from PyQt4.Qt import QGraphicsRectItem, QGraphicsPolygonItem, \
+from PyQt5.Qt import QGraphicsRectItem, QGraphicsPolygonItem, \
     QGraphicsEllipseItem
 
 
@@ -103,7 +103,8 @@ class GraphicsItemText(GraphicsItem, QGraphicsTextItem):
             return
 
         for point in self.points():
-            markPoint = QGraphicsRectItem(None, self.scene())
+            markPoint = QGraphicsRectItem(None)
+            self.scene().addItem(markPoint)
             markPoint.setZValue(0)
             markPoint.setPen(QPen(Qt.black, 1, Qt.SolidLine))
             x1 = point.x() - self.MARK_SIZE / 2
@@ -211,7 +212,7 @@ class GraphicsItemText(GraphicsItem, QGraphicsTextItem):
 
 
     def text(self):
-        return unicode(self.toPlainText())
+        return self.toPlainText()
 
 
     def setText(self, text):
