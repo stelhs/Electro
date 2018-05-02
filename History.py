@@ -40,6 +40,7 @@ class ActionAddRemoveItems(HistoryAction):
     def add(self):
         self.scene.resetSelectionItems()
         for item in self.items:
+            item.assignNewId()
             self.scene.addGraphicsItem(item)
 
 
