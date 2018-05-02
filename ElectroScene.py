@@ -587,6 +587,10 @@ class ElectroScene(QGraphicsScene):
             subItems = self.subComponentGroups(item)
             for subItem in subItems:
                 subItem.highlight()
+        if item.type() == LINK_TYPE:
+            remoteItem = item.remoteLinkPoint()
+            if remoteItem:
+                remoteItem.highlight()
         self.editor.setStatusGraphicsItemInfo(item)
         self.editor.showGroupInfo(item)
 
