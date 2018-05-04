@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 import rlcompleter, readline
@@ -12,6 +13,9 @@ readline.parse_and_bind('tab:complete')
 app = QApplication(sys.argv)
 electro = ElectroEditor(app)
 electro.show()
+
+if len(sys.argv) > 1 and os.path.isfile(sys.argv[1]):
+    electro.openProject(sys.argv[1])
 
 if not (len(sys.argv) > 1 and sys.argv[1] == '-i'):
     sys.exit(app.exec_())

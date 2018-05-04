@@ -36,6 +36,6 @@ class Settings():
 
     def save(self):
         file = open(self._settingsFile, "w")
-        file.write(json.dumps(Settings._settings, indent=2, sort_keys=True))
+        file.write(json.dumps(Settings._settings, indent=2, sort_keys=True, ensure_ascii=False))
         file.close()
 

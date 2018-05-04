@@ -496,7 +496,7 @@ class ElectroEditor(QMainWindow):
                 file = str(QFileDialog.getSaveFileName(None,
                                                        "Save project",
                                             filter="Electro schematic file (*.es)",
-                                            directory=lastDir))
+                                            directory=lastDir)[0])
                 if not file:
                     return
             self.saveProject(file)
@@ -1104,7 +1104,7 @@ class ElectroEditor(QMainWindow):
     def displayItem(self, item):
         scene = item.scene()
         self.tabWidget.setCurrentIndex(scene.num() - 1)
-        self.displayScenePoint(item.center(), 200, scene)
+        self.displayScenePoint(item.center(), 125, scene)
 
 
     def displayScenePoint(self, point, zoom, scene=None):
@@ -1199,7 +1199,6 @@ class ElectroEditor(QMainWindow):
         if newfileName:
             if newfileName[-3:] != '.es':
                 newfileName += '.es'
-
             fileDirName = os.path.dirname(newfileName)
             if not os.path.isdir(fileDirName):
                 os.mkdir(fileDirName)
@@ -1246,7 +1245,7 @@ class ElectroEditor(QMainWindow):
         data = {"header": header,
                 "pages": pagesData,
                 "connections": connections}
-        jsonText = json.dumps(data, indent=2, sort_keys=True)
+        jsonText = json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False)
 
         file = open(fileName, "w")
         file.write(jsonText)
@@ -1534,7 +1533,7 @@ class Component(QListWidgetItem):
             self._image = self._image.scaledToHeight(100, Qt.SmoothTransformation)
         self._image.save("%s/%s.png" % (componentsPath(), self._name))
 
-        jsonProp = json.dumps(self._groupProperties, indent=2, sort_keys=True)
+        jsonProp = json.dumps(self._groupProperties, indent=2, sort_keys=True, ensure_ascii=False)
         f = open("%s/%s.ec" % (componentsPath(), self._name), "w")
         f.write(jsonProp)
         f.close()
