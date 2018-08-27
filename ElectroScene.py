@@ -39,6 +39,7 @@ class ElectroScene(QGraphicsScene):
         self.keyCTRL = False
         self.keyShift = False
         self.mousePos = QPointF(0, 0)
+        self.mouseGridPos = QPointF(0, 0)
         self.drawLinesHistory = []  # temporary array of drawed lines between mouse left and right clicks
         self.minGridSize = MAX_GRID_SIZE / 4
         self.gridSize = self.minGridSize
@@ -621,13 +622,27 @@ class ElectroScene(QGraphicsScene):
             self.drawingText.setEndPoint(point)
 
 
+    def isPosInHysteresMargin(self, currentPos, currentGridPos):
+        delta = self.gridSize / 100 * 75
+        if abs(currentGridPos.x() - currentPos.x()) > delta:
+            return False
+        if abs(currentGridPos.y() - currentPos.y()) > delta:
+            return False
+        return True
+
+
     def mouseMoveEvent(self, ev):
         if not self.inGraphicPaper(ev.scenePos()):
             return
 
         self.mousePos = ev.scenePos()
 
+        if self.isPosInHysteresMargin(self.mousePos, self.mouseGridPos):
+            return
+
         point = self.mapToGrid(ev.scenePos())
+        self.mouseGridPos = point
+
         self.editor.setStatusCursorCoordinates(point)
 
         if self.mode == 'select' or self.mode == 'textEdit':
@@ -820,7 +835,7 @@ class ElectroScene(QGraphicsScene):
                 return
 
             # decrease zIndex
-            if key == 45:  # +
+            if key == 45:  # -
                 items = self.selectedGraphicsItems()
                 self.history.changeItemsStart(items)
                 for item in items:
