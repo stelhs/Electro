@@ -513,6 +513,10 @@ class ElectroScene(QGraphicsScene):
         if not len(self.graphicsItems()):
             return False
 
+        for item in self.movedPointItems:
+            item.resetSelectionPoint()
+        self.movedPointItems = []
+
         point = self.mapToGrid(ev.scenePos())
         for item in self.graphicsItems():
             if item.setSelectPoint(point):
@@ -636,21 +640,20 @@ class ElectroScene(QGraphicsScene):
             return
 
         self.mousePos = ev.scenePos()
-
-        if self.isPosInHysteresMargin(self.mousePos, self.mouseGridPos):
-            return
+        hysteresMoveFlag = not self.isPosInHysteresMargin(self.mousePos, self.mouseGridPos)
 
         point = self.mapToGrid(ev.scenePos())
-        self.mouseGridPos = point
+        if hysteresMoveFlag:
+            self.mouseGridPos = point
 
         self.editor.setStatusCursorCoordinates(point)
 
         if self.mode == 'select' or self.mode == 'textEdit':
             self.mouseMoveEventDisplayPoints(self.mousePos)
 
-            if self.mouseMoveEventMoveItem(ev):
+            if hysteresMoveFlag and self.mouseMoveEventMoveItem(ev):
                 return
-            if self.mouseMoveEventMovePoint(ev):
+            if hysteresMoveFlag and self.mouseMoveEventMovePoint(ev):
                 return
             if self.mouseMoveEventMoveRectSelection(ev):
                 return
@@ -663,17 +666,20 @@ class ElectroScene(QGraphicsScene):
             return
 
         if self.mode == 'pasteFromClipboard':
-            self.moveSelectedItems(point)
-            self.calculateSelectionCenter()
+            if hysteresMoveFlag:
+                self.moveSelectedItems(point)
+                self.calculateSelectionCenter()
             return
 
         if self.mode == 'moveSelectedItems':
-            self.moveSelectedItems(point)
+            if hysteresMoveFlag:
+                self.moveSelectedItems(point)
             return
 
         if self.mode == 'pastLinkPoint':
-            self.moveSelectedItems(self.mapToGrid(ev.scenePos(), MAX_GRID_SIZE))
-            self.calculateSelectionCenter()
+            if hysteresMoveFlag:
+                self.moveSelectedItems(self.mapToGrid(ev.scenePos(), MAX_GRID_SIZE))
+                self.calculateSelectionCenter()
             return
 
 
