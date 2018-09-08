@@ -520,6 +520,7 @@ class ElectroScene(QGraphicsScene):
         point = self.mapToGrid(ev.scenePos())
         for item in self.graphicsItems():
             if item.setSelectPoint(point):
+                print("add to move point item %d" % item.id())
                 self.movedPointItems.append(item)
 
         if not len(self.movedPointItems):
@@ -533,6 +534,7 @@ class ElectroScene(QGraphicsScene):
         if not len(self.movedPointItems):
             return False
 
+        self.intersectionPointsHide()
         p = self.mapToGrid(ev.scenePos())
         for item in self.graphicsItems():
             if item.isPointSelected():
@@ -972,6 +974,7 @@ class ElectroScene(QGraphicsScene):
             p.setY(p.y() - self.gridSize)
             self.moveSelectedItemsByKeys(p)
             self.editor.updateAllComponentsView()
+            self.update()
             return
 
         # move down selected items
@@ -983,6 +986,7 @@ class ElectroScene(QGraphicsScene):
             p.setY(p.y() + self.gridSize)
             self.moveSelectedItemsByKeys(p)
             self.editor.updateAllComponentsView()
+            self.update()
             return
 
         # move left selected items
@@ -994,6 +998,7 @@ class ElectroScene(QGraphicsScene):
             p.setX(p.x() - self.gridSize)
             self.moveSelectedItemsByKeys(p)
             self.editor.updateAllComponentsView()
+            self.update()
             return
 
         # move right selected items
@@ -1005,6 +1010,7 @@ class ElectroScene(QGraphicsScene):
             p.setX(p.x() + self.gridSize)
             self.moveSelectedItemsByKeys(p)
             self.editor.updateAllComponentsView()
+            self.update()
             return
 
         QGraphicsScene.keyPressEvent(self, event)
@@ -1430,11 +1436,16 @@ class ElectroScene(QGraphicsScene):
         self.intersectionPointsShow()
 
 
+    def intersectionPointsHide(self):
+        if not self.interceptionPoints:
+            return
+        for point in self.interceptionPoints:
+            if point.scene():
+                self.removeItem(point)
+
+
     def intersectionPointsShow(self):
-        if self.interceptionPoints:
-            for point in self.interceptionPoints:
-                if point.scene():
-                    self.removeItem(point)
+        self.intersectionPointsHide()
 
 #        items = self.graphicsUnpackedItems()
         items = self.graphicsItems()

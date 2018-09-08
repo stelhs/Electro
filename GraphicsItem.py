@@ -49,7 +49,9 @@ class GraphicsItem():
     def assignNewId(self):
         GraphicsItem.lastId += 1
         self._id = GraphicsItem.lastId
-        print("new item was created %d" % self.id())
+        print("new item was created %d, type = %s, name = %s" % (self.id(),
+                                                                self.typeName(),
+                                                                self.name()))
 
 
     def setName(self, name):
@@ -68,6 +70,8 @@ class GraphicsItem():
 
     def addr(self):
         scene = self.scene()
+        if not scene:
+            return ""
         quadrant = scene.quadrantByPos(self.pos())
         return "%d/%s" % (scene.num(), quadrant)
 

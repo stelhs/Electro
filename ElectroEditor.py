@@ -1142,19 +1142,27 @@ class ElectroEditor(QMainWindow):
             return []
 
         listUpdateParentComponents = []
-        items = []
+        newItems = []
+        itemsListWithOldId = {}
         for itemProp in ItemsProperties:
             item = createGraphicsObjectByProperties(itemProp)
             if item:
-                items.append(item)
-                if item.type() == GROUP_TYPE and 'parentComponentId' in itemProp:
-                    listUpdateParentComponents.append((item, itemProp['parentComponentId']))
+                parentComponentId = 0
+                if 'parentComponentId' in itemProp:
+                    parentComponentId = itemProp['parentComponentId']
+                itemsListWithOldId[itemProp['id']] = (item, parentComponentId)
+                newItems.append(item)
 
-        for (group, parentId) in listUpdateParentComponents:
-            parentGroup = self.itemById(parentId)
-            group.setParentComponentGroup(parentGroup)
+        for (oldId, (item, parentComponentId)) in itemsListWithOldId.items():
+            if item.type() == GROUP_TYPE and parentComponentId:
+                (parentGroup, pParent) = itemsListWithOldId[parentComponentId]
+                if parentGroup:
+                    print("oldId = %d, id = %d, OldParentId = %d, newParentId = %d" % (
+                                        oldId, item.id(),
+                                        parentComponentId, parentGroup.id()))
+                    item.setParentComponentGroup(parentGroup)
 
-        return items
+        return newItems
 
 
     def connectionByLinkPoint(self, linkPoint):

@@ -66,6 +66,9 @@ class GraphicsItemGroup(GraphicsItem):
 
 
     def updateView(self):
+        if not self.scene():
+            return
+
         text = "%s" % self.indexName()
         if self._parentComponentGroup:
             text += "(%s)" % self._parentComponentGroup.addr()
