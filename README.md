@@ -5,6 +5,6 @@ Electro - easy schematic editor
 
 Page links is most features of Elector editor. Editor usability same as sPlan or similar.
 
-Run 'python3 electo.py' for using or 'python3 -i electro.py -i' for debugging
+Run 'python3 electro.py' for using or 'python3 -i electro.py -i' for debugging
 
 

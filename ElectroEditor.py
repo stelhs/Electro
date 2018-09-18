@@ -1154,7 +1154,7 @@ class ElectroEditor(QMainWindow):
                 newItems.append(item)
 
         for (oldId, (item, parentComponentId)) in itemsListWithOldId.items():
-            if item.type() == GROUP_TYPE and parentComponentId:
+            if item.type() == GROUP_TYPE and parentComponentId in itemsListWithOldId:
                 (parentGroup, pParent) = itemsListWithOldId[parentComponentId]
                 if parentGroup:
                     print("oldId = %d, id = %d, OldParentId = %d, newParentId = %d" % (

@@ -513,10 +513,7 @@ class ElectroScene(QGraphicsScene):
         if not len(self.graphicsItems()):
             return False
 
-        for item in self.movedPointItems:
-            item.resetSelectionPoint()
         self.movedPointItems = []
-
         point = self.mapToGrid(ev.scenePos())
         for item in self.graphicsItems():
             if item.setSelectPoint(point):
@@ -749,12 +746,9 @@ class ElectroScene(QGraphicsScene):
             self.selectingByMouse.remove()
             self.selectingByMouse = None
 
-
-        if len(self.movedPointItems):
-            self.history.changeItemsFinish()
-            for item in self.movedPointItems:
-                item.resetSelectionPoint()
-            self.movedPointItems = []
+        self.history.changeItemsFinish()
+        for item in self.graphicsItems():
+            item.resetSelectionPoint()
 
         if self.movingItem:
             print("moving finished")

@@ -169,7 +169,6 @@ class GraphicsItemText(GraphicsItem, QGraphicsTextItem):
 
 
     def resetSelectionPoint(self):
-        print("resetSelectionPoint")
         self.markPointsHide()
         self.selectedPoint = None
 
