@@ -9,7 +9,7 @@
       "fillColor": "None",
       "id": 1,
       "mountPoint": {
-        "x": 15.0,
+        "x": 5.0,
         "y": 15.0
       },
       "name": "",
@@ -39,7 +39,7 @@
         "y": 0.0
       },
       "p2": {
-        "x": 15.0,
+        "x": 5.0,
         "y": 0.0
       },
       "penStyle": "solid",
@@ -56,7 +56,7 @@
       },
       "id": 3,
       "mountPoint": {
-        "x": 45.0,
+        "x": 35.0,
         "y": 20.0
       },
       "name": "",
@@ -65,7 +65,7 @@
         "y": 0.0
       },
       "p2": {
-        "x": 15.0,
+        "x": 5.0,
         "y": 0.0
       },
       "penStyle": "solid",
@@ -82,7 +82,7 @@
       },
       "id": 4,
       "mountPoint": {
-        "x": 30.0,
+        "x": 20.0,
         "y": 15.0
       },
       "name": "",
@@ -108,33 +108,7 @@
       },
       "id": 5,
       "mountPoint": {
-        "x": 30.0,
-        "y": 0.0
-      },
-      "name": "",
-      "p1": {
-        "x": 0.0,
-        "y": 0.0
-      },
-      "p2": {
-        "x": 10.0,
-        "y": 0.0
-      },
-      "penStyle": "solid",
-      "thickness": 2,
-      "type": "line",
-      "typeLine": "line",
-      "zIndex": 2
-    },
-    {
-      "color": {
-        "B": 200,
-        "G": 0,
-        "R": 0
-      },
-      "id": 6,
-      "mountPoint": {
-        "x": 30.0,
+        "x": 20.0,
         "y": 15.0
       },
       "name": "",
@@ -158,9 +132,9 @@
         "G": 0,
         "R": 0
       },
-      "id": 7,
+      "id": 6,
       "mountPoint": {
-        "x": 30.0,
+        "x": 20.0,
         "y": 15.0
       },
       "name": "",
@@ -179,13 +153,13 @@
       "zIndex": 2
     }
   ],
-  "id": 101,
-  "index": 2,
+  "id": 566,
+  "index": 9,
   "mountPoint": {
-    "x": 340.0,
-    "y": 300.0
+    "x": 200.0,
+    "y": 560.0
   },
-  "name": "undefined",
+  "name": "potentiometer",
   "prefixName": "R",
   "type": "group"
 }
