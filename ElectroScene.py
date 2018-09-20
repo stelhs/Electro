@@ -55,12 +55,12 @@ class ElectroScene(QGraphicsScene):
         self.interceptionPoints = []
 
         self.horizontalFieldsCount = 20
-        self.verticalFieldsCount = 10
+        self.verticalFieldsCount = 14
 
         self.horizontalFieldsHeight = 4  # in minGridSize
         self.verticalFieldsWidth = 4  # in minGridSize
 
-        self.sceneRectSize = QPointF(400, 200)  # in minGridSize
+        self.sceneRectSize = QPointF(500, 350)  # in minGridSize
 
         self.setGrid(MAX_GRID_SIZE)
 
