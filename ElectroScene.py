@@ -2,6 +2,7 @@ from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from ElectroEditor import *
 from History import *
+
 # from gtk.keysyms import ordfeminine
 import json
 from GraphicsItem import *
@@ -64,8 +65,6 @@ class ElectroScene(QGraphicsScene):
 
         self.setGrid(MAX_GRID_SIZE)
 
-
-
         # configure graphic paper
         def pix(val):
             return val * self.minGridSize
@@ -78,6 +77,18 @@ class ElectroScene(QGraphicsScene):
         self.bottomRight = QPointF(pix(self.sceneRectSize.x()),
                                    pix(self.sceneRectSize.y()))
 
+        # run periodical updater
+        def timeoutUpdater():
+            self.updateCounter -= 1
+            if self.updateCounter <= 0 or self.updateCounter > 1:
+                return
+            print("run update")
+            self.update()
+
+        self.updateCounter = 0
+        self.updaterTimer = QTimer()
+        self.updaterTimer.timeout.connect(timeoutUpdater)
+        self.updaterTimer.start(500)
 
 
     def setNum(self, num):
@@ -684,7 +695,7 @@ class ElectroScene(QGraphicsScene):
 
 
     def mouseReleaseEvent(self, ev):
-        self.update()
+        self.asyncUpdate()
         if self.mode == 'pasteFromClipboard':
             return
 
@@ -793,7 +804,7 @@ class ElectroScene(QGraphicsScene):
             items = self.selectedGraphicsItems()
             self.history.removeItems(items)
             self.removeGraphicsItems(items)
-            self.update()
+            self.asyncUpdate()
             return
 
         if not self.keyCTRL and not self.keyShift:
@@ -968,7 +979,7 @@ class ElectroScene(QGraphicsScene):
             p.setY(p.y() - self.gridSize)
             self.moveSelectedItemsByKeys(p)
             self.editor.updateAllComponentsView()
-            self.update()
+            self.asyncUpdate()
             return
 
         # move down selected items
@@ -980,7 +991,7 @@ class ElectroScene(QGraphicsScene):
             p.setY(p.y() + self.gridSize)
             self.moveSelectedItemsByKeys(p)
             self.editor.updateAllComponentsView()
-            self.update()
+            self.asyncUpdate()
             return
 
         # move left selected items
@@ -992,7 +1003,7 @@ class ElectroScene(QGraphicsScene):
             p.setX(p.x() - self.gridSize)
             self.moveSelectedItemsByKeys(p)
             self.editor.updateAllComponentsView()
-            self.update()
+            self.asyncUpdate()
             return
 
         # move right selected items
@@ -1004,7 +1015,7 @@ class ElectroScene(QGraphicsScene):
             p.setX(p.x() + self.gridSize)
             self.moveSelectedItemsByKeys(p)
             self.editor.updateAllComponentsView()
-            self.update()
+            self.asyncUpdate()
             return
 
         QGraphicsScene.keyPressEvent(self, event)
@@ -1422,7 +1433,10 @@ class ElectroScene(QGraphicsScene):
                 line.setTypeLine('line')
             else:
                 line.setTypeLine('trace')
-        self.update()
+        self.asyncUpdate()
+
+    def asyncUpdate(self):
+        self.updateCounter = 4
 
 
     def update(self):
