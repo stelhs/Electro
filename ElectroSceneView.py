@@ -10,7 +10,7 @@ class ElectroSceneView(QGraphicsView):
         self.editor = editor
         QGraphicsView.__init__(self, scene)
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
-        self.zoomFactor = 1.25
+        self.zoomFactor = 1.5
         self.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         self.setMouseTracking(True)
         self.scalePercent = 100
