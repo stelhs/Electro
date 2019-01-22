@@ -1,3 +1,6 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+
 """
  * Main executable file of editor.
  *     option '-i' provide python console after run editor.
@@ -23,9 +26,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  """
-
-#!/usr/bin/python3
-# -*- coding: utf-8 -*-
 
 import rlcompleter, readline
 import sys
