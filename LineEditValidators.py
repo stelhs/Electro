@@ -23,8 +23,8 @@
  """
 
 from PyQt5.QtGui import *
-from ElectroEditor import *
-from GraphicsItem import *
+from .ElectroEditor import *
+from .GraphicsItem import *
 
 
 class DialogLineEditValidator(QValidator):
@@ -81,6 +81,8 @@ class ComponentNameValidator(DialogLineEditValidator):
             prefix = words[1]
         else:
             prefix = ""
+        if not len(words):
+            return QValidator.Invalid, string, pos
         name = words[0]
 
         for component in self.editor.componentList:
