@@ -23,8 +23,8 @@
  """
 
 from PyQt5.QtGui import *
-from .ElectroEditor import *
-from .GraphicsItem import *
+from ElectroEditor import *
+from GraphicsItem import *
 
 
 class DialogLineEditValidator(QValidator):
