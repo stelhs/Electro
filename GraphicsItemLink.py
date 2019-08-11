@@ -209,20 +209,20 @@ class GraphicsItemLink(GraphicsItem):
 
         direction = self.direction()
         if direction == 'top':
-            pos = self.arrowPos() + QPointF(-MAX_GRID_SIZE / 2, -MAX_GRID_SIZE * 4)
-            rect = QRectF(0, 0, MAX_GRID_SIZE * 4, MAX_GRID_SIZE)
+            pos = self.arrowPos() + QPointF(-MAX_GRID_SIZE / 2, -MAX_GRID_SIZE * 5)
+            rect = QRectF(0, 0, MAX_GRID_SIZE * 5, MAX_GRID_SIZE)
             angle = 90
         elif direction == 'bottom':
             pos = self.arrowPos() + QPointF(-MAX_GRID_SIZE / 2, 0)
-            rect = QRectF(0, 0, MAX_GRID_SIZE * 4, MAX_GRID_SIZE)
+            rect = QRectF(0, 0, MAX_GRID_SIZE * 5, MAX_GRID_SIZE)
             angle = 90
         elif direction == 'left':
-            pos = self.arrowPos() + QPointF(-MAX_GRID_SIZE * 4, -MAX_GRID_SIZE / 2)
-            rect = QRectF(0, 0, MAX_GRID_SIZE * 4, MAX_GRID_SIZE)
+            pos = self.arrowPos() + QPointF(-MAX_GRID_SIZE * 5, -MAX_GRID_SIZE / 2)
+            rect = QRectF(0, 0, MAX_GRID_SIZE * 5, MAX_GRID_SIZE)
             angle = 0
         elif direction == 'right':
             pos = self.arrowPos() + QPointF(0, -MAX_GRID_SIZE / 2)
-            rect = QRectF(0, 0, MAX_GRID_SIZE * 4, MAX_GRID_SIZE)
+            rect = QRectF(0, 0, MAX_GRID_SIZE * 5, MAX_GRID_SIZE)
             angle = 0
 
         self.addrText.resetRotation()
