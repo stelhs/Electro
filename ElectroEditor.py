@@ -24,6 +24,7 @@
 
 from ElectroScene import *
 from ElectroSceneView import *
+from NavigationHistory import *
 from Color import *
 from Settings import *
 from LineEditValidators import *
@@ -51,6 +52,8 @@ class ElectroEditor(QMainWindow):
         self.componentList = []
         self.connectionsList = []
         self.projectFileName = ""
+
+        self.navigationHistory = NavigationHistory(self)
 
         self.setWindowTitle("Electro editor")
 
@@ -213,7 +216,7 @@ class ElectroEditor(QMainWindow):
         self.pages.append(page)
         self.actualizePagesTabs(page)
         self.setEditorTool(page.scene().currentTool())
-        self.displayScenePosition(ScenePosition(0, 0, 100), page.scene())
+        self.displayScenePosition(SceneViewPosition(0, 0, 100), page.scene())
 
 
     def actualizePagesTabs(self, currentPage=None):
@@ -454,6 +457,8 @@ class ElectroEditor(QMainWindow):
         if self.keyCTRL and key == 80:  # CTRL+P
             def dialogOnReturn(name):
                 self.addPage(name)
+                self.navigationHistory.reset()
+
             self.dialogLineEditShow("Enter new page name:", dialogOnReturn)
             return
 
@@ -610,13 +615,26 @@ class ElectroEditor(QMainWindow):
 
         # move current page left
         if self.keyCTRL and key == 16777234:  # CTRL+LEFT
+            self.navigationHistory.reset()
             self.moveCurrentPageLeft()
             return
 
         # move current page right
         if self.keyCTRL and key == 16777236:  # CTRL+RIGHT
+            self.navigationHistory.reset()
             self.moveCurrentPageRight()
             return
+
+        # move current page left
+        if self.keyShift and key == 16777234:  # Shift+LEFT
+            self.navigationHistory.undo()
+            return
+
+        # move current page right
+        if self.keyShift and key == 16777236:  # Shift+RIGHT
+            self.navigationHistory.redo()
+            return
+
 
         # save selected items into component
         if self.keyCTRL and key == 87:  # CTRL+W
@@ -1128,7 +1146,7 @@ class ElectroEditor(QMainWindow):
     def displayItem(self, item):
         scene = item.scene()
         self.tabWidget.setCurrentIndex(scene.num() - 1)
-        self.displayScenePosition(ScenePosition(item.center(), 125), scene)
+        self.displayScenePosition(SceneViewPosition(item.center(), 125), scene)
 
 
     def displayScenePosition(self, scenePos, scene=None):
@@ -1252,13 +1270,13 @@ class ElectroEditor(QMainWindow):
 
         self.backupProject()
 
-        viewCenter = self.sceneView().center()
+        scenePos = self.sceneView().scenePos()
         header = {"app": "Electro Schematic editor",
                   "version": self.EDITOR_VERSION,
                   "viewPage": self.currectPage().num(),
-                  "viewCenter": {'x': viewCenter.x(),
-                                 'y': viewCenter.y()},
-                  "viewZoom": self.sceneView().zoom()}
+                  "viewCenter": {'x': scenePos.pos.x(),
+                                 'y': scenePos.pos.y()},
+                  "viewZoom": scenePos.zoom()}
 
         pagesData = []
         for page in self.pages:
@@ -1316,6 +1334,9 @@ class ElectroEditor(QMainWindow):
 
     def openProject(self, fileName):
         print("openProject from %s" % fileName)
+
+        self.navigationHistory.reset()
+
         file = open(fileName, "r")
         fileContent = file.read()
         file.close()
@@ -1394,9 +1415,9 @@ class ElectroEditor(QMainWindow):
         self.actualizePagesTabs()
         if 'viewPage' in header:
             self.switchPage(header['viewPage'])
-            self.displayScenePosition(ScenePosition(header['viewCenter']['x'],
-                                                    header['viewCenter']['y'],
-                                                    header['viewZoom']))
+            self.displayScenePosition(SceneViewPosition(int(header['viewCenter']['x']),
+                                                    int(header['viewCenter']['y']),
+                                                    int(header['viewZoom'])))
         self.update()
 
 
@@ -1439,11 +1460,13 @@ class ElectroEditor(QMainWindow):
         self.actualizePagesTabs()
         GraphicsItem.lastId = 0
         Color.resetColorHistory()
+        self.navigationHistory.reset()
+        self.keyCTRL = False
 
 
     def focusOutEvent(self, event):
         self.keyCTRL = False
-        self.keyShift = False
+#        self.keyShift = False
         for page in self.pages:
             scene = page.scene()
             view = page.sceneView()
@@ -1452,6 +1475,14 @@ class ElectroEditor(QMainWindow):
             view.keyShiftRelease()
             view.keyCTRLRelease()
 
+
+    def pos(self):
+        return EditorPosition(self.currectPage().num(),
+                              self.sceneView().scenePos())
+
+    def setPos(self, pos):
+        self.switchPage(pos.page())
+        self.displayScenePosition(pos.pos())
 
 
 def componentsPath():
@@ -1597,4 +1628,24 @@ class Component(QListWidgetItem):
             return ""
         return self._groupProperties['prefixName']
 
+
+
+class EditorPosition():
+    def __init__(self, page, scenePos):
+        self._page = page
+        self._scenePos = scenePos
+
+    def pos(self):
+        return self._scenePos
+
+    def page(self):
+        return self._page
+
+    def __eq__(self, item):
+        if item is None:
+            return False
+        return self.pos() == item.pos() and self.page() == item.page()
+
+    def __str__(self):
+        return 'page:%d, position:%s' % (self.page(), self.pos())
 

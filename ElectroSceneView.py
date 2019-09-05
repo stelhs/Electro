@@ -43,6 +43,12 @@ class ElectroSceneView(QGraphicsView):
         self.keyCTRL = False
         self.keyShift = False
 
+        # reset navigation history timer if ElectroSceneView changed
+        vbar = self.verticalScrollBar()
+        hbar = self.horizontalScrollBar()
+        vbar.valueChanged.connect(editor.navigationHistory.resetTimer)
+        hbar.valueChanged.connect(editor.navigationHistory.resetTimer)
+
 
     def zoomIn(self, zoomPos):
         c = QCursor()
@@ -110,6 +116,7 @@ class ElectroSceneView(QGraphicsView):
 
 
     def wheelEvent(self, event):
+        self.editor.navigationHistory.resetTimer()
         if self.keyCTRL:
             deltaY = 0
             if event.angleDelta().y() > 0:
@@ -135,6 +142,8 @@ class ElectroSceneView(QGraphicsView):
         else:
             self.zoomOut(event.pos())
 
+    def resizeEvent(self, event):
+        print("resize event")
 
     def keyShiftPress(self):
         self.keyShift = True
@@ -175,8 +184,45 @@ class ElectroSceneView(QGraphicsView):
 
 
     def center(self):
-        return self.mapToScene(QPoint(self.width() / 2, self.height() / 2))
+#        return self.mapToScene(QPoint(self.width() / 2, self.height() / 2))
+        return self.mapToScene(self.viewport().rect().center())
 
 
+    def scenePos(self):
+        return SceneViewPosition(self.center(), self.zoom())
+
+
+
+class SceneViewPosition():
+    def __init__(self, *args):
+        if not len(args):
+            raise Exception('no enoight constructor arguments')
+
+        if type(args[0]).__name__ == 'QPointF':
+            self._pos = args[0];
+            self._zoom = args[1]
+        elif type(args[0]).__name__ == 'int':
+            self._pos = QPointF(args[0], args[1]);
+            self._zoom = args[2]
+        else:
+            raise Exception('incorrect constructor arguments')
+
+    def pos(self):
+        return self._pos
+
+    def zoom(self):
+        return self._zoom
+
+    def __eq__(self, scenePos):
+        if scenePos is None:
+            return False
+        r = QRect(self.pos().x() - 1,
+                  self.pos().y() - 1, 3, 3)
+        return r.contains(scenePos.pos().toPoint()) and self.zoom() == scenePos.zoom()
+
+    def __str__(self):
+        return '(%d, %d), zoom:%d' % (self._pos.x(),
+                                              self._pos.y(),
+                                              self._zoom)
 
 
