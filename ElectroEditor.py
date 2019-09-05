@@ -213,7 +213,7 @@ class ElectroEditor(QMainWindow):
         self.pages.append(page)
         self.actualizePagesTabs(page)
         self.setEditorTool(page.scene().currentTool())
-        self.displayScenePoint(QPointF(0, 0), 100, page.scene())
+        self.displayScenePosition(ScenePosition(0, 0, 100), page.scene())
 
 
     def actualizePagesTabs(self, currentPage=None):
@@ -1128,14 +1128,14 @@ class ElectroEditor(QMainWindow):
     def displayItem(self, item):
         scene = item.scene()
         self.tabWidget.setCurrentIndex(scene.num() - 1)
-        self.displayScenePoint(item.center(), 125, scene)
+        self.displayScenePosition(ScenePosition(item.center(), 125), scene)
 
 
-    def displayScenePoint(self, point, zoom, scene=None):
+    def displayScenePosition(self, scenePos, scene=None):
         if not scene:
             scene = self.scene()
         view = scene.views()[0]
-        view.setZoom(zoom, point)
+        view.setZoom(scenePos.zoom(), scenePos.pos())
 
 
     def displayRemoteLinkPoint(self, linkPoint):
@@ -1394,9 +1394,9 @@ class ElectroEditor(QMainWindow):
         self.actualizePagesTabs()
         if 'viewPage' in header:
             self.switchPage(header['viewPage'])
-            self.displayScenePoint(QPointF(header['viewCenter']['x'],
-                                           header['viewCenter']['y']),
-                                           header['viewZoom'])
+            self.displayScenePosition(ScenePosition(header['viewCenter']['x'],
+                                                    header['viewCenter']['y'],
+                                                    header['viewZoom']))
         self.update()
 
 

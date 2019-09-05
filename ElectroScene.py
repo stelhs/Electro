@@ -1668,5 +1668,29 @@ class MouseSelectionDrawing(RectDrawing):
         return True
 
 
+class ScenePosition():
+    def __init__(self, *args):
+        if not len(args):
+            raise Exception('no enoight constructor arguments')
+
+        if type(args[0]).__name__ == 'QPointF':
+            self._pos = args[0];
+            self._zoom = args[1]
+        elif type(args[0]).__name__ == 'int':
+            self._pos = QPointF(args[0], args[1]);
+            self._zoom = args[2]
+        else:
+            raise Exception('incorrect constructor arguments')
+
+    def pos(self):
+        return self._pos
+
+    def zoom(self):
+        return self._zoom
+
+    def __str__(self):
+        return 'pos:(%d, %d), zoom:%d' % (self._pos.x(),
+                                              self._pos.y(),
+                                              self._zoom)
 
 
