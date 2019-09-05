@@ -49,9 +49,8 @@ Editor operations:
 	X - move selected items
 	S - change grid size
 	Del - remove selected items
-
-
-
+	Shift + Left - move to previous view
+	Shift + Right - move to back view
 
 
 
