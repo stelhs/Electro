@@ -52,6 +52,8 @@ class ElectroEditor(QMainWindow):
         self.componentList = []
         self.connectionsList = []
         self.projectFileName = ""
+        self.projectName = ""
+        self.projectRevision = 1
 
         self.navigationHistory = NavigationHistory(self)
 
@@ -212,7 +214,8 @@ class ElectroEditor(QMainWindow):
 
 
     def addPage(self, name):
-        page = PageWidget(self, name)
+        page = PageWidget(self)
+        page.setName(name)
         self.pages.append(page)
         self.actualizePagesTabs(page)
         self.setEditorTool(page.scene().currentTool())
@@ -454,7 +457,7 @@ class ElectroEditor(QMainWindow):
                 page.sceneView().keyShiftPress()
 
         # add new page
-        if self.keyCTRL and key == 80:  # CTRL+P
+        if self.keyCTRL and key == 73:  # CTRL+I
             def dialogOnReturn(name):
                 self.addPage(name)
                 self.navigationHistory.reset()
@@ -515,6 +518,10 @@ class ElectroEditor(QMainWindow):
             if scene.mode == "pastLinkPoint":
                 return
             scene.setMode('pastLinkPoint')
+            return
+
+        if self.keyCTRL and key == 80:  # CTRL+P
+            self.printProject()
             return
 
         # save project
@@ -1253,6 +1260,7 @@ class ElectroEditor(QMainWindow):
             if not os.path.isdir(fileDirName):
                 os.mkdir(fileDirName)
             self.projectFileName = newfileName
+            self.projectName = os.path.basename(newfileName)
 
         if not self.projectFileName:
             return
@@ -1269,14 +1277,16 @@ class ElectroEditor(QMainWindow):
             return False
 
         self.backupProject()
+        self.projectRevision += 1
 
         scenePos = self.sceneView().scenePos()
         header = {"app": "Electro Schematic editor",
                   "version": self.EDITOR_VERSION,
                   "viewPage": self.currectPage().num(),
-                  "viewCenter": {'x': scenePos.pos.x(),
-                                 'y': scenePos.pos.y()},
-                  "viewZoom": scenePos.zoom()}
+                  "viewCenter": {'x': scenePos.pos().x(),
+                                 'y': scenePos.pos().y()},
+                  "viewZoom": scenePos.zoom(),
+                  "rev": self.projectRevision}
 
         pagesData = []
         for page in self.pages:
@@ -1377,7 +1387,8 @@ class ElectroEditor(QMainWindow):
         # create pages
         listUpdateParentComponents = []
         for pageData in pagesData:
-            page = PageWidget(self, pageData['name'])
+            page = PageWidget(self)
+            page.setName(pageData['name'])
             page.setNum(pageData['num'])
             self.pages.append(page)
             itemsData = pageData['items']
@@ -1411,6 +1422,7 @@ class ElectroEditor(QMainWindow):
             self.connectionsList.append(conn)
         Connection.lastId = connLastId + 1
         self.projectFileName = fileName
+        self.projectName = os.path.basename(fileName)
 
         self.actualizePagesTabs()
         if 'viewPage' in header:
@@ -1418,7 +1430,38 @@ class ElectroEditor(QMainWindow):
             self.displayScenePosition(SceneViewPosition(int(header['viewCenter']['x']),
                                                     int(header['viewCenter']['y']),
                                                     int(header['viewZoom'])))
+
+        if 'rev' in header:
+            self.projectRevision = header['rev']
         self.update()
+
+
+    def printProject(self):
+        printer = QPrinter(QPrinter.HighResolution)
+        printer.setPageSize(QPrinter.A4);
+        printer.setOrientation(QPrinter.Landscape);
+        printer.setResolution(300)
+        printer.setPageMargins(25.0, 5.0, 5.0, 5.0, QPrinter.Millimeter)
+      #  printer.setFullPage(True);
+
+        def previewPrinter(previewPrinter):
+            painter = QPainter(previewPrinter)
+            first = True
+            for page in self.pages:
+                if previewPrinter.fromPage() and page.num() < previewPrinter.fromPage():
+                    continue
+                if previewPrinter.toPage() and page.num() > previewPrinter.toPage():
+                    continue
+                if not first:
+                    previewPrinter.newPage()
+                first = False
+                print("printing page %d\n" % page.num())
+                page.scene().render(painter)
+            painter.end()
+
+        preview = QPrintPreviewDialog(printer)
+        preview.paintRequested.connect(previewPrinter)
+        preview.exec()
 
 
     def checkForDuplicateItemId(self):
@@ -1493,10 +1536,9 @@ def componentsPath():
 
 
 class PageWidget(QWidget):
-    def __init__(self, editor, name):
+    def __init__(self, editor):
         QWidget.__init__(self)
         global page_last_id
-        self._name = name
         scene = ElectroScene(editor)
         self._sceneView = ElectroSceneView(editor, scene)
         layout = QVBoxLayout(self)
@@ -1506,21 +1548,19 @@ class PageWidget(QWidget):
 
 
     def setNum(self, num):
-        scene = self.scene()
-        scene.setNum(num)
-        self.pageNum = num
+        self.scene().setNum(num)
 
 
     def num(self):
-        return self.pageNum
+        return self.scene().num()
 
 
     def name(self):
-        return self._name
+        return self.scene().name()
 
 
     def setName(self, name):
-        self._name = name
+        self.scene().setName(name)
 
 
     def scene(self):

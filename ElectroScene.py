@@ -80,13 +80,14 @@ class ElectroScene(QGraphicsScene):
 
         self.interceptionPoints = []
 
-        self.horizontalFieldsCount = 20
-        self.verticalFieldsCount = 14
+        self.horizontalFieldsCount = 21
+        self.verticalFieldsCount = 16
 
         self.horizontalFieldsHeight = 4  # in minGridSize
         self.verticalFieldsWidth = 4  # in minGridSize
 
-        self.sceneRectSize = QPointF(500, 350)  # in minGridSize
+        self.sceneRectSize = QPointF(self.horizontalFieldsCount * self.horizontalFieldsHeight * self.minGridSize,
+                                     self.verticalFieldsCount * self.verticalFieldsWidth * self.minGridSize)
 
         self.setGrid(MAX_GRID_SIZE)
 
@@ -97,8 +98,8 @@ class ElectroScene(QGraphicsScene):
 
         self.setSceneRect(-pix(self.horizontalFieldsHeight + 1),
                           - pix(self.verticalFieldsWidth + 1),
-                          pix(self.sceneRectSize.x()),
-                          pix(self.sceneRectSize.y()))
+                          pix(self.sceneRectSize.x() + self.horizontalFieldsHeight * 2),
+                          pix(self.sceneRectSize.y() + self.verticalFieldsWidth * 2))
         self.bottomRight = QPointF(pix(self.sceneRectSize.x()),
                                    pix(self.sceneRectSize.y()))
 
@@ -122,6 +123,14 @@ class ElectroScene(QGraphicsScene):
 
     def num(self):
         return self._num
+
+
+    def setName(self, name):
+        self._name = name
+
+
+    def name(self):
+        return self._name
 
 
     def setGrid(self, gridSize):
@@ -151,7 +160,9 @@ class ElectroScene(QGraphicsScene):
         def pix(val):
             return val * self.minGridSize
 
-        # draw grid in viewRect
+        horizontalFieldSize = self.sceneRectSize.x() / self.horizontalFieldsCount
+        verticalFieldSize = self.sceneRectSize.y() / self.verticalFieldsCount
+
         p = self.mapToGrid(viewRect.topLeft())
         startX = p.x() - self.gridSize
         startY = p.y() - self.gridSize
@@ -167,23 +178,44 @@ class ElectroScene(QGraphicsScene):
         if viewHeight > pix(self.sceneRectSize.y()):
             viewHeight = pix(self.sceneRectSize.y())
 
-        qp.setPen(QPen(QColor(245, 245, 245), 1))
 
         x_step = self.gridSize
         y_step = self.gridSize
         x_cnt = int(viewWidth / x_step)
         y_cnt = int(viewHeight / y_step)
+        cellPen = QPen(QColor(245, 245, 245), 1)
+        cellQuadrantPen = QPen(QColor(225, 225, 225), 1)
 
+        # draw grid
+        qp.setPen(cellPen)
         for i in range(x_cnt - 1):
-            qp.drawLine(startX + (i + 1) * x_step, startY + 1,
-                        startX + (i + 1) * x_step, startY + viewHeight - 1);
+            x = startX + (i + 1) * x_step
+            qp.drawLine(x, startY + 1,
+                        x, startY + viewHeight - 1);
 
         for i in range(y_cnt - 1):
-            qp.drawLine(startX + 1, startY + (i + 1) * y_step,
-                        startX + viewWidth - 1, startY + (i + 1) * y_step);
+            y = startY + (i + 1) * y_step
+            qp.drawLine(startX + 1, y,
+                        startX + viewWidth - 1, y);
 
+        # draw quadrant grid
+        qp.setPen(cellQuadrantPen)
+        for i in range(x_cnt - 1):
+            x = startX + (i + 1) * x_step
+            if x % (horizontalFieldSize * self.minGridSize):
+                continue
+            qp.drawLine(x, startY + 1,
+                        x, startY + viewHeight - 1);
+
+        for i in range(y_cnt - 1):
+            y = startY + (i + 1) * y_step
+            if y % (verticalFieldSize * self.minGridSize):
+                continue
+            qp.drawLine(startX + 1, y,
+                        startX + viewWidth - 1, y);
+
+        # draw cell points
         if self.gridSize != MAX_GRID_SIZE:
-            # draw Max grid
             p = self.mapToGrid(QPointF(startX - MAX_GRID_SIZE, startY - MAX_GRID_SIZE),
                            MAX_GRID_SIZE)
             startX = p.x()
@@ -199,14 +231,13 @@ class ElectroScene(QGraphicsScene):
                                  startY + (y + 1) * y_step)
 
         # draw graphics region in all scene
-        horizontalFieldSize = self.sceneRectSize.x() / self.horizontalFieldsCount
-        verticalFieldSize = self.sceneRectSize.y() / self.verticalFieldsCount
-
         startX = -pix(self.horizontalFieldsHeight)
         startY = -pix(self.verticalFieldsWidth)
 
         qp.setPen(QPen(Qt.black, 1))
-        qp.setFont(QFont("System", 10, QFont.Normal))
+        font = QFont("System", 10, QFont.Normal)
+        font.setPixelSize(14)
+        qp.setFont(font)
 
         qp.drawRect(startX, startY,
                     pix(self.horizontalFieldsHeight) + pix(self.sceneRectSize.x()),
@@ -237,6 +268,24 @@ class ElectroScene(QGraphicsScene):
                           pix(verticalFieldSize))
             qp.drawRect(rect)
             qp.drawText(rect, Qt.AlignCenter, "%s" % chr(65 + i))
+
+        # draw page info
+        sx = startX + pix(self.verticalFieldsWidth)
+        px = sx + pix(horizontalFieldSize) * (self.horizontalFieldsCount) - pix(horizontalFieldSize) * 3
+        py = sy + pix(verticalFieldSize) * (self.verticalFieldsCount) - pix(self.verticalFieldsWidth) * 4
+        rect = QRectF(px, py,
+                      pix(self.horizontalFieldsHeight * 15),
+                      pix(self.horizontalFieldsHeight * 4))
+        qp.drawRect(rect)
+        qp.setPen(QPen(Qt.blue, 1))
+        qp.drawText(rect, Qt.AlignLeft | Qt.AlignVCenter,
+                    ('  Page: %d\n' +
+                     '  Name: "%s"\n' +
+                     '  File: "%s"\n' +
+                     '  Rev: %d') % (self.num(),
+                                     self.name(),
+                                     self.editor.projectName,
+                                     self.editor.projectRevision))
 
 
     def mapToGrid(self, arg, gridSize=None):

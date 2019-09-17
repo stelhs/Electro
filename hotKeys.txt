@@ -37,11 +37,12 @@ Editor operations:
 	CTRL + W - save selected items as component
 	CTRL + Shift + S - save project as..
 	CTRL + F - search item by id or index name
-	CTRL + P - ctreate new page
+	CTRL + I - ctreate new page
 	CTRL + E - edit current page name / edit selected group
 	CTRL + D - remove current page / remove selected component
 	CTRL + left arrow - move current page left
 	CTRL + right arrow - move current page right
+	CTRL + P - Printing project
 	Space - rotate selected items
 	G - group selected items
 	Shift + G - ungroup selected groups
