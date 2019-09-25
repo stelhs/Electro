@@ -31,8 +31,8 @@ from LineEditValidators import *
 from PyQt5.Qt import QWidget, QMainWindow, QLabel, QPoint, QTimer
 import os, glob, sys, pprint, re
 from shutil import copyfile
-from datetime import datetime
 import time
+import datetime
 
 
 def editorPath():
@@ -54,6 +54,7 @@ class ElectroEditor(QMainWindow):
         self.projectFileName = ""
         self.projectName = ""
         self.projectRevision = 1
+        self._schematicDate = None
 
         self.navigationHistory = NavigationHistory(self)
 
@@ -174,6 +175,7 @@ class ElectroEditor(QMainWindow):
 
         self.colorDialog = QColorDialog()
 
+        self.resetEditor()
         self.addPage("Undefined")
         self.setFocusPolicy(Qt.NoFocus)
         self.tabWidget.installEventFilter(self)
@@ -1280,6 +1282,7 @@ class ElectroEditor(QMainWindow):
         self.backupProject()
         if self.isSchematicChanged():
             self.projectRevision += 1
+            self._schematicDate = datetime.date.today()
 
         scenePos = self.sceneView().scenePos()
         header = {"app": "Electro Schematic editor",
@@ -1288,7 +1291,8 @@ class ElectroEditor(QMainWindow):
                   "viewCenter": {'x': scenePos.pos().x(),
                                  'y': scenePos.pos().y()},
                   "viewZoom": scenePos.zoom(),
-                  "rev": self.projectRevision}
+                  "rev": self.projectRevision,
+                  "date": self.schematicDate()}
 
         pagesData = []
         for page in self.pages:
@@ -1333,7 +1337,7 @@ class ElectroEditor(QMainWindow):
         if fileDirName:
             fileDirName += '/'
         projectName = os.path.splitext(baseFileName)[0]
-        date = datetime.now().strftime("%Y-%m-%d_%H-%M")
+        date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
         newFileDir = "%s%s_backups" % (fileDirName, projectName)
         if not os.path.isdir(newFileDir):
             os.mkdir(newFileDir)
@@ -1435,6 +1439,11 @@ class ElectroEditor(QMainWindow):
 
         if 'rev' in header:
             self.projectRevision = header['rev']
+
+        self._schematicDate = None
+        if 'date' in header:
+            self._schematicDate = datetime.datetime.strptime(header['date'],
+                                                             '%d.%m.%Y').date()
         self.update()
 
 
@@ -1507,6 +1516,7 @@ class ElectroEditor(QMainWindow):
         Color.resetColorHistory()
         self.navigationHistory.reset()
         self.keyCTRL = False
+        self._schematicDate = datetime.date.today()
 
 
     def focusOutEvent(self, event):
@@ -1544,6 +1554,11 @@ class ElectroEditor(QMainWindow):
             history = scene.history
             history.historyChanged = False
 
+    def schematicDate(self):
+        d = self._schematicDate
+        if not d:
+            return ""
+        return "%02d.%02d.%04d" % (d.day, d.month, d.year)
 
 def componentsPath():
     return "%s/components" % editorPath()

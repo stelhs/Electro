@@ -272,20 +272,22 @@ class ElectroScene(QGraphicsScene):
         # draw page info
         sx = startX + pix(self.verticalFieldsWidth)
         px = sx + pix(horizontalFieldSize) * (self.horizontalFieldsCount) - pix(horizontalFieldSize) * 3
-        py = sy + pix(verticalFieldSize) * (self.verticalFieldsCount) - pix(self.verticalFieldsWidth) * 4
+        py = sy + pix(verticalFieldSize) * (self.verticalFieldsCount) - pix(self.verticalFieldsWidth) * 5
         rect = QRectF(px, py,
                       pix(self.horizontalFieldsHeight * 15),
-                      pix(self.horizontalFieldsHeight * 4))
+                      pix(self.horizontalFieldsHeight * 5))
         qp.drawRect(rect)
         qp.setPen(QPen(Qt.blue, 1))
         qp.drawText(rect, Qt.AlignLeft | Qt.AlignVCenter,
                     ('  Page: %d\n' +
                      '  Name: "%s"\n' +
                      '  File: "%s"\n' +
-                     '  Rev: %d') % (self.num(),
+                     '  Rev: %d\n' +
+                     '  Date: %s') % (self.num(),
                                      self.name(),
                                      self.editor.projectName,
-                                     self.editor.projectRevision))
+                                     self.editor.projectRevision,
+                                     self.editor.schematicDate()))
 
 
     def mapToGrid(self, arg, gridSize=None):
