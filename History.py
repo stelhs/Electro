@@ -216,6 +216,7 @@ class History():
         self.scene = scene
         self.history = []
         self.future = []
+        self.historyChanged = False
 
         self.changeItemsAction = None
         pass
@@ -226,6 +227,7 @@ class History():
             return
 
         self.future = []
+        self.historyChanged = True
 
         action = ActionAddRemoveItems(self.scene, 'add', items)
         if actions:
@@ -242,6 +244,7 @@ class History():
         if not len(items):
             return
 
+        self.historyChanged = True
         self.future = []
 
         action = ActionAddRemoveItems(self.scene, 'remove', items)
@@ -256,6 +259,7 @@ class History():
 
 
     def changeItemsStart(self, items):
+        self.historyChanged = True
         print("changeItemsStart")
         self.changeItemsAction = ActionChangeItems(self.scene, items)
 
@@ -268,6 +272,7 @@ class History():
         if not self.changeItemsAction.finish():
             return
 
+        self.historyChanged = True
         self.future = []
 
         if actions:
@@ -284,6 +289,7 @@ class History():
         if group.type() != GROUP_TYPE:
             return
 
+        self.historyChanged = True
         self.future = []
 
         action = ActionPackUnpackGroup(self.scene, 'pack', group)
@@ -301,6 +307,7 @@ class History():
         if group.type() != GROUP_TYPE:
             return
 
+        self.historyChanged = True
         self.future = []
 
         action = ActionPackUnpackGroup(self.scene, 'unpack', group)

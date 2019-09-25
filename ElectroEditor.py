@@ -1269,6 +1269,7 @@ class ElectroEditor(QMainWindow):
         self.settings.set('lastProjectDir', fileDirName)
         self.saveProjectToFile(self.projectFileName)
         self.showStatusBarMessage("project saved in %s" % self.projectFileName)
+        self.resetSchematicChanged()
 
 
     def saveProjectToFile(self, fileName):
@@ -1277,7 +1278,8 @@ class ElectroEditor(QMainWindow):
             return False
 
         self.backupProject()
-        self.projectRevision += 1
+        if self.isSchematicChanged():
+            self.projectRevision += 1
 
         scenePos = self.sceneView().scenePos()
         header = {"app": "Electro Schematic editor",
@@ -1526,6 +1528,21 @@ class ElectroEditor(QMainWindow):
     def setPos(self, pos):
         self.switchPage(pos.page())
         self.displayScenePosition(pos.pos())
+
+
+    def isSchematicChanged(self):
+        for page in self.pages:
+            scene = page.scene()
+            history = scene.history
+            if history.historyChanged:
+                return True
+        return False
+
+    def resetSchematicChanged(self):
+        for page in self.pages:
+            scene = page.scene()
+            history = scene.history
+            history.historyChanged = False
 
 
 def componentsPath():
