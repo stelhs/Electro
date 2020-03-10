@@ -1445,6 +1445,10 @@ class ElectroEditor(QMainWindow):
             self._schematicDate = datetime.datetime.strptime(header['date'],
                                                              '%d.%m.%Y').date()
         self.update()
+        
+        fileDirName = os.path.dirname(self.projectFileName)
+        self.settings.set('lastProjectDir', fileDirName)
+        
 
 
     def printProject(self):
